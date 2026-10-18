@@ -1,0 +1,15 @@
+{
+  "name": "BiteVo — Good Food, Better Mood",
+  "short_name": "BiteVo",
+  "description": "Order fresh, chef-made food from BiteVo and follow it live.",
+  "start_url": "/menu",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFFFF",
+  "theme_color": "#B71C1C",
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,160 @@
+/* ===================================================================================
+   Menu page below the red bar, as in the design: filter chips, "Recommended for you" tiles,
+   sections of dish cards with "See all", and the green cart bar. Builds on order.css.
+   =================================================================================== */
+
+/* Filter chips */
+.chips-row {
+  display: flex; gap: 12px; margin: 0 -16px 26px; padding: 2px 16px 4px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.chips-row::-webkit-scrollbar { display: none; }
+.fchip {
+  flex: none; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px;
+  border: 1px solid #E2E2E2; border-radius: 10px; background: var(--white); color: #1C1C1C;
+  font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .05); transition: border-color .2s, background .2s, color .2s;
+}
+.fchip:hover { border-color: #CFCFCF; }
+.fchip > svg { width: 18px; height: 18px; flex: none; }
+.fchip .fchip__stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fchip .fchip__fill { fill: currentColor; }
+.fchip .fchip__leaf { fill: #2E9B3E; }
+.fchip > svg:last-child:not(:first-child) { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; margin-left: -2px; }
+.fchip.is-on { border-color: var(--red); background: var(--red-tint); color: var(--red); }
+.fchip--veg.is-on { border-color: #2E9B3E; background: var(--green-soft); color: #227A2F; }
+.fchip__count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--red); color: var(--white); font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+
+/* Section headings with "See all" */
+.feed-block + .feed-block { margin-top: 30px; }
+.feed-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.feed-head h2 { display: flex; align-items: center; gap: 8px; font-size: 21px; font-weight: 700; color: #141414; letter-spacing: -.01em; }
+.feed-head h2 span { font-size: 13px; font-weight: 600; color: var(--muted); background: var(--grey-soft); border-radius: 999px; padding: 2px 9px; }
+.see-all {
+  flex: none; display: inline-flex; align-items: center; gap: 2px; padding: 6px 0; border: 0; background: none;
+  font: inherit; font-size: 14.5px; font-weight: 600; color: #141414; cursor: pointer;
+}
+.see-all svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+.see-all:hover { color: var(--red); }
+.see-all:hover svg { transform: translateX(2px); }
+
+/* "Recommended for you": a sideways row of small cards */
+.tiles {
+  display: flex; gap: 14px; margin: 0 -16px; padding: 2px 16px 10px;
+  overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: 16px; scrollbar-width: none;
+}
+.tiles::-webkit-scrollbar { display: none; }
+.tiles--all { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); overflow: visible; }
+.tile {
+  flex: 0 0 calc((100% - 4 * 14px) / 5); min-width: 150px; display: flex; flex-direction: column;
+  background: var(--white); border: 1px solid #EDEDED; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .06); scroll-snap-align: start;
+}
+.tile__img { position: relative; display: block; aspect-ratio: 158 / 94; padding: 0; border: 0; background: var(--red-soft); cursor: pointer; overflow: hidden; }
+.tile__img img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .4s, transform .5s; }
+.tile__img img.is-loaded { opacity: 1; }
+.tile:hover .tile__img img { transform: scale(1.05); }
+.tile__badge {
+  position: absolute; left: 7px; top: 7px; padding: 3px 7px; border-radius: 4px; background: #D7191F; color: var(--white);
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+}
+.tile__body { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 9px 10px 10px; }
+.tile__name {
+  display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; padding: 0; border: 0; background: none;
+  font: inherit; font-size: 14px; font-weight: 700; color: #1A1A1A; text-align: left; cursor: pointer;
+}
+.tile__name span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile__name svg { width: 15px; height: 15px; flex: none; fill: none; stroke: #2E9B3E; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.tile__foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.tile__price { font-size: 15px; font-weight: 700; color: #141414; }
+.tile.is-unavailable .tile__img img { filter: grayscale(1); opacity: .6; }
+.tile .sold-out { font-size: 12px; }
+
+/* Smaller "ADD +" button for the tiles, and the clearer green outline from the design */
+.add-btn--sm { height: 30px; padding: 0 11px; font-size: 12.5px; border-radius: 8px; }
+.tile .add-btn, .dish--row .add-btn { border-color: #5DB15A; box-shadow: none; }
+
+/* Dish cards in two columns: photo on the left inside a white card */
+.dish-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.dish--row {
+  flex-direction: row; align-items: stretch; gap: 12px; padding: 8px; border: 1px solid #EBEBEB; border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .05); overflow: visible;
+}
+.dish--row:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0, 0, 0, .08); border-color: #E4E4E4; }
+.dish--row .dish__img { width: 40%; max-width: 172px; min-height: 112px; flex: none; aspect-ratio: auto; border-radius: 10px; }
+.dish--row .dish__body { padding: 2px 4px 2px 0; }
+.dish--row .dish__meta { margin-bottom: 6px; min-height: 18px; }
+.dish--row h3 { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+.dish--row p { font-size: 13px; line-height: 1.45; margin-bottom: 10px; }
+.dish--row .dish__badge { left: 7px; top: 7px; font-size: 10px; padding: 3px 8px; }
+.dish--row .price b { font-size: 16px; }
+.dish--row .add-btn { height: 34px; padding: 0 14px; font-size: 13.5px; border-radius: 9px; }
+.dish--row .stepper { height: 34px; }
+@media (min-width: 640px) {
+  .dish-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
+}
+
+/* Filters and sort sheets */
+.filters-sheet h2 { margin-bottom: 4px; padding-right: 44px; }
+.filters-sheet h3 { margin: 20px 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.choice { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice__opt {
+  height: 38px; padding: 0 15px; border: 1.5px solid #E6D6D6; border-radius: 999px; background: var(--white);
+  font: inherit; font-size: 14px; color: #333; cursor: pointer; transition: border-color .2s, background .2s, color .2s;
+}
+.choice__opt.is-on { border-color: var(--red); background: var(--red-tint); color: var(--red); font-weight: 600; }
+.check { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); font-size: 15px; cursor: pointer; }
+.check input { width: 18px; height: 18px; flex: none; accent-color: var(--red); }
+.sort-list { margin-top: 10px; }
+.sort-list .check:last-child { border-bottom: 0; }
+.filters-sheet__actions { display: flex; gap: 10px; margin-top: 22px; }
+.filters-sheet__actions .btn { flex: 1; justify-content: center; }
+
+/* Empty tab / no results */
+.section--menu .empty .btn { margin-top: 2px; }
+
+/* The cart bar: photo, item count and savings, then a white "View Cart" pill */
+.cart-bar {
+  width: min(640px, calc(100% - 24px)); justify-content: flex-start; gap: 14px; padding: 9px 10px;
+  background: #0E7A37; border-radius: 16px; box-shadow: 0 14px 32px rgba(8, 70, 28, .38);
+}
+.cart-bar:hover { background: #0C6E31; }
+.cart-bar__thumb {
+  width: 66px; height: 50px; flex: none; border-radius: 10px; overflow: hidden; display: grid; place-items: center;
+  background: rgba(255, 255, 255, .16);
+}
+.cart-bar__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cart-bar__text {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25;
+  padding-right: 14px; border-right: 1px solid rgba(255, 255, 255, .32); text-align: left;
+}
+.cart-bar__count { font-size: 17px; font-weight: 700; white-space: nowrap; }
+.cart-bar__count b { font-weight: 700; }
+.cart-bar__saved { font-size: 13px; opacity: .92; }
+.cart-bar__go {
+  flex: none; padding: 11px 16px 11px 22px; border-radius: 999px; background: var(--white); color: #0E7A37;
+  font-size: 16px; font-weight: 700; gap: 4px;
+}
+.cart-bar .cart-bar__go svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+@media (min-width: 600px) and (max-width: 899px) {
+  .tile { flex-basis: calc((100% - 3 * 14px) / 4); }
+}
+@media (max-width: 599px) {
+  .tile { flex: 0 0 150px; }
+}
+@media (max-width: 520px) {
+  .chips-row { gap: 10px; margin-bottom: 22px; }
+  .fchip { height: 38px; padding: 0 12px; font-size: 13.5px; gap: 7px; }
+  .feed-head h2 { font-size: 18.5px; }
+  .see-all { font-size: 13.5px; }
+  .dish--row .dish__img { width: 38%; min-height: 104px; }
+  .dish--row h3 { font-size: 15px; }
+  .dish--row p { font-size: 12.5px; }
+  .cart-bar { gap: 10px; padding: 8px; border-radius: 14px; }
+  .cart-bar__thumb { width: 54px; height: 44px; border-radius: 9px; }
+  .cart-bar__text { padding-right: 10px; }
+  .cart-bar__count { font-size: 15.5px; }
+  .cart-bar__saved { font-size: 12.5px; }
+  .cart-bar__go { padding: 9px 12px 9px 16px; font-size: 14.5px; }
+}
