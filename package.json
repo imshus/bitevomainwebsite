@@ -1,0 +1,14 @@
+{
+  "name": "bitevo-website",
+  "private": true,
+  "version": "1.0.0",
+  "description": "BiteVo customer website: the API in backend/ and the React site in frontend/. Hosts run npm install, npm run build and npm start from here.",
+  "scripts": {
+    "postinstall": "cd backend && npm install && cd ../frontend && npm install --include=dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
