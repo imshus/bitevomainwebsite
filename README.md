@@ -127,4 +127,5 @@ which can include real website customers. Use `DEMO_MODE=false` with real custom
 - `npm run build --prefix frontend` and serve `frontend/dist` with a fallback to `index.html`.
 - On a server or host that deploys from the repo root (Node 20.19 or newer), create `backend/.env` and
   `frontend/.env` from their `.env.example` files, then run `npm install` (installs both folders),
-  `npm run build` (builds the website into `frontend/dist`) and `npm start` (starts the API, on `PORT`).
+  `npm run build` (builds the website into `frontend/dist`) and `npm start` (starts the API on `PORT`; it
+  also serves the built website, so one address hosts both. Restart it after each new build).
