@@ -8,6 +8,10 @@ import { prefersReducedMotion } from '../lib/motion.js';
 // Images live in public/assets/banners: a 1600×600 JPG plus 800 and 1600 wide WebP copies.
 const BANNERS = [
   {
+    file: 'brand-logo',
+    alt: 'BiteVo — Good Food, Better Mood',
+  },
+  {
     file: 'offer-first-order',
     alt: 'First order? Get a free cold coffee on orders above ₹99, plus free delivery.',
   },

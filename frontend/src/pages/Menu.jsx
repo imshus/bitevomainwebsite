@@ -39,7 +39,7 @@ function SectionHead({ title, count, seeAll, onSeeAll }) {
 }
 
 export default function Menu() {
-  usePageTitle('Menu');
+  usePageTitle(); // the home page: "BiteVo — Good Food, Better Mood"
   const { hash } = useLocation();
   const navigate = useNavigate();
   const { data: menu, error, loading, reload } = useMenu();
