@@ -20,6 +20,9 @@ function mongoUri() {
 }
 
 const list = value => (value || '').split(',').map(s => s.trim()).filter(Boolean);
+
+// BiteVo's own websites may always call the API with cookies, besides any CLIENT_ORIGIN lists.
+const SITE_ORIGINS = ['https://bitevo.in', 'https://www.bitevo.in'];
 const num = (value, fallback) => (value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : fallback);
 
 // `--port 4001` on the command line wins over PORT (the dev script pins the API to 4001).
@@ -32,7 +35,8 @@ export const config = {
   // Without MongoDB the API stores data in this JSON file instead (handy for offline work).
   dataFile: process.env.DATA_FILE || path.join(backendDir, 'data', 'db.json'),
   // Origins of the website allowed to call the API with cookies.
-  clientOrigins: list(process.env.CLIENT_ORIGIN || 'http://localhost:2002'),
+  // Browsers send an origin without a trailing slash, so "https://bitevo.in/" is accepted as "https://bitevo.in".
+  clientOrigins: [...new Set([...list(process.env.CLIENT_ORIGIN || 'http://localhost:2002').map(o => o.replace(/\/+$/, '')), ...SITE_ORIGINS])],
   // Prefix for menu photos the admin panel uploaded (stored as /uploads/<file>).
   adminPublicUrl: (process.env.ADMIN_PUBLIC_URL || '').replace(/\/$/, ''),
   deliveryFee: num(process.env.DELIVERY_FEE, 30),
