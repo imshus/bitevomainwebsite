@@ -116,11 +116,18 @@ router.post('/otp', sendLimiter, async (req, res) => {
   const phone = requirePhone(req.body);
   // Live: MiniMoth makes the code and sends it on WhatsApp or SMS. Test mode: our own code, shown on screen.
   const remote = phoneCodesByMiniMoth();
-  const code = await issueCode('otpCodes', 'phone', phone, c => {
-    if (remote) return sendPhoneCode(phone);
-    console.log(`[dev] Sign-in code for ${phone}: ${c}`);
-  }, { remote });
   const existing = await store.findOne('customers', { phone });
+  let code;
+  try {
+    code = await issueCode('otpCodes', 'phone', phone, c => {
+      if (remote) return sendPhoneCode(phone);
+      console.log(`[dev] Sign-in code for ${phone}: ${c}`);
+    }, { remote });
+  } catch (err) {
+    // Why the code didn't go out, for the sign-in log (admin panel → Login status).
+    if (err.reason) await logAttempt(req, phone, existing, false, `Code not sent: ${err.reason}`).catch(() => {});
+    throw err;
+  }
   res.json({
     phone,
     isNew: !existing,
