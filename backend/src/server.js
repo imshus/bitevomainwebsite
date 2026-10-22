@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { seedStarterMenu } from './demo/starterMenu.js';
 import { startReferralChecks } from './lib/referrals.js';
 import { startOfferChecks } from './lib/offers.js';
+import { startPaymentChecks } from './lib/razorpay.js';
 
 try {
   await connectStore();
@@ -24,6 +25,7 @@ if (config.otpDevMode) console.log('OTP dev mode: sign-in codes are shown on scr
 
 startReferralChecks();
 startOfferChecks();
+startPaymentChecks();
 
 const server = createApp().listen(config.port, () => {
   console.log(`BiteVo website API listening on http://localhost:${config.port}`);

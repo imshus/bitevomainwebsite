@@ -73,6 +73,7 @@ export const api = {
   placeAt: (lat, lng) => get(`/places/reverse?${new URLSearchParams({ lat, lng })}`),
 
   quote: cart => post('/orders/quote', cart, { quiet401: true }),
+  payOnline: order => post('/orders/pay', order),
   placeOrder: order => post('/orders', order),
   orders: () => get('/orders'),
   order: id => get(`/orders/${id}`),

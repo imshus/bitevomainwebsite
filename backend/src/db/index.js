@@ -26,6 +26,8 @@ const INDEXES = [
   ['referrals', { referrerId: 1, createdAt: -1 }],
   ['referrals', { status: 1 }],
   ['otpCodes', { phone: 1, createdAt: -1 }],
+  ['payments', { status: 1, createdAt: 1 }],
+  ['orders', { razorpayOrderId: 1 }, { sparse: true }],
   ['emailCodes', { email: 1, createdAt: -1 }],
   ['supportMessages', { createdAt: -1 }],
 ];

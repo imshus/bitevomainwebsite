@@ -164,8 +164,13 @@
 .co-pay__error, .co-pay__row { width: min(640px, 100% - 24px); margin-inline: auto; }
 .co-pay__error { margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--red); }
 .co-pay__row { display: flex; align-items: center; gap: 14px; }
-.co-pay__using { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
-.co-pay__using small { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.co-pay__using {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.3;
+  padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.co-pay__using:disabled { cursor: default; }
+.co-pay__using small { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.co-pay__using small svg { width: 13px; height: 13px; rotate: 180deg; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .co-pay__using b { font-size: 15.5px; }
 .co-pay__using span { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .co-pay__btn {
@@ -175,6 +180,17 @@
 }
 .co-pay__btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(183, 28, 28, .35); }
 .co-pay__btn:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+
+/* "Pay using" sheet */
+.co-paysheet h2 { margin: 0 0 16px; font-size: 20px; }
+.co-payopt {
+  display: flex; align-items: center; gap: 12px; padding: 14px; margin-bottom: 10px; border: 1.5px solid var(--line);
+  border-radius: 14px; cursor: pointer; transition: border-color .2s, background .2s;
+}
+.co-payopt input { width: 18px; height: 18px; margin: 0; accent-color: var(--red); flex: none; }
+.co-payopt span { display: flex; flex-direction: column; line-height: 1.35; }
+.co-payopt small { font-size: 13px; color: var(--muted); }
+.co-payopt.is-selected { border-color: var(--red); background: var(--red-tint); }
 
 /* "Deliver to" sheet */
 .co-addr-sheet h2 { margin: 0 0 16px; font-size: 20px; }

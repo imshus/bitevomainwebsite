@@ -199,7 +199,7 @@ export default function OrderDetail() {
             {order.address && (
               <p className="order-address"><MapPin /><span><b>{order.address.label}</b>{addressLine(order.address)}</span></p>
             )}
-            <p className="order-pay"><b>Payment</b>{order.paymentMethod === 'Wallet' ? 'Paid from BiteVo wallet' : 'Pay on delivery (cash or UPI)'}</p>
+            <p className="order-pay"><b>Payment</b>{order.paidOnline ? `Paid online (${order.paymentMethod})` : order.paymentMethod === 'Wallet' ? 'Paid from BiteVo wallet' : 'Pay on delivery (cash or UPI)'}</p>
             {order.note && <p className="order-pay"><b>Note</b>{order.note}</p>}
             <div className="order-actions">
               {order.status === 'placed' && (

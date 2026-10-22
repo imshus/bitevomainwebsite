@@ -7,6 +7,7 @@ import { badRequest, nowIso, text, MIN } from '../lib/http.js';
 import { couponStatus, normalizePhone, clientIp } from '../lib/rules.js';
 import { getSettings } from '../lib/settings.js';
 import { optionalCustomer } from '../auth.js';
+import { razorpayEnabled } from '../lib/razorpay.js';
 import { emailSignInEnabled } from '../lib/mail.js';
 
 export const router = Router();
@@ -24,6 +25,7 @@ router.get('/config', async (req, res) => {
     offers: config.offers,
     otpDevMode: config.otpDevMode,
     googleClientId: config.googleClientId || null, // shows "Continue with Google" when set
+    razorpay: razorpayEnabled() ? { keyId: config.razorpay.keyId } : null, // shows "Pay online" at checkout
     emailLogin: emailSignInEnabled(), // shows "Sign in with email"
     referral: config.referral.enabled ? { reward: config.referral.reward, ordersNeeded: config.referral.orders } : null,
     // null when no Google Maps key is set: addresses are then typed in by hand.
