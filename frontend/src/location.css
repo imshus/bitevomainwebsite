@@ -125,7 +125,7 @@
 .place-search__box button { width: 32px; height: 32px; flex: none; border: 0; border-radius: 50%; background: var(--grey-soft); display: grid; place-items: center; cursor: pointer; }
 .place-search__box button svg { width: 15px; height: 15px; stroke: #555; stroke-width: 2; fill: none; stroke-linecap: round; }
 .place-search .form-error { margin-top: 12px; }
-.place-search > .btn { margin-top: 16px; }
+.place-search > .btn, .location-sheet .place-add { margin-top: 16px; }
 .place-row {
   display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 6px; border: 0; border-bottom: 1px solid var(--line);
   background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background .15s;

@@ -240,19 +240,34 @@ export function PinMap({ start, confirmLabel = 'Confirm location', onConfirm, on
 }
 
 // The menu's "Delivering to" sheet. Without a Maps key it can still switch between saved addresses.
+// "Add a new address" is always offered; someone who isn't signed in signs in first.
 export default function LocationPicker({ onClose, onAddAddress }) {
-  const { customer } = useAuth();
+  const { customer, requireLogin } = useAuth();
   const { data: config } = useConfig();
   const [place, setPlace] = useState(null);
   const saved = customer?.addresses || [];
   const choose = location => { setDeliveryLocation(location); onClose(); };
 
+  const addAddress = async () => {
+    if (customer?.name) { onAddAddress(); return; }
+    onClose();
+    if (await requireLogin('Sign in to save your delivery address.')) onAddAddress();
+  };
+  const addButton = onAddAddress && (
+    <button type="button" className="btn btn--outline btn--block place-add" onClick={addAddress}>+ Add a new address</button>
+  );
+
   return (
     <Modal onClose={onClose} label="Choose delivery location" className={`location-sheet${place ? ' location-sheet--map' : ''}`}>
       {place ? (
         <PinMap start={place} onBack={() => setPlace(null)} onConfirm={p => choose(locationFromPlace(p))} />
-      ) : config?.maps ? (
-        <PlaceSearch title="Choose delivery location" saved={saved} onPick={setPlace} onPickSaved={a => choose(locationFromAddress(a))} />
+      ) : !config ? (
+        <div className="place-search"><h2>Choose delivery location</h2><p className="muted">Loading…</p></div>
+      ) : config.maps ? (
+        <>
+          <PlaceSearch title="Choose delivery location" saved={saved} onPick={setPlace} onPickSaved={a => choose(locationFromAddress(a))} />
+          {addButton}
+        </>
       ) : (
         <div className="place-search">
           <h2>Choose delivery location</h2>
@@ -265,8 +280,8 @@ export default function LocationPicker({ onClose, onAddAddress }) {
                 </button>
               ))}
             </div>
-          ) : <p className="muted">You can add your delivery address when you check out.</p>}
-          {customer && onAddAddress && <button type="button" className="btn btn--outline btn--block" onClick={onAddAddress}>+ Add a new address</button>}
+          ) : <p className="muted">Add your delivery address so we know where to bring your food.</p>}
+          {addButton}
         </div>
       )}
     </Modal>
