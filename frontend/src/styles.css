@@ -157,19 +157,6 @@ em { font-family: "Playfair Display", Georgia, serif; font-style: italic; color:
 
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
-/* Intro loader (CSS-only, hides itself) */
-.loader {
-  position: fixed; inset: 0; z-index: 200; background: var(--white);
-  display: grid; place-items: center;
-  animation: loaderOut .6s ease 1.5s forwards;
-}
-.loader__inner { display: grid; justify-items: center; gap: 22px; }
-.loader img { width: 230px; height: auto; animation: logoIn .9s cubic-bezier(.2, .9, .3, 1.25) both; }
-.loader__bar { width: 160px; height: 4px; border-radius: 4px; background: var(--red-soft); overflow: hidden; position: relative; }
-.loader__bar::after { content: ""; position: absolute; inset: 0; background: var(--red); transform-origin: left; animation: bar 1.3s ease-in-out forwards; }
-@keyframes logoIn { from { opacity: 0; transform: scale(.7) translateY(14px); } to { opacity: 1; transform: none; } }
-@keyframes bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes loaderOut { to { opacity: 0; visibility: hidden; } }
 
 /* Hero entrance (runs after the loader) */
 .anim { animation: fadeUp .8s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--intro, 0s) + var(--d, 0) * .12s); }
@@ -547,7 +534,7 @@ em { font-family: "Playfair Display", Georgia, serif; font-style: italic; color:
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .orbit, .orbit__item img, .hero__blob, .chip, .gallery__track, .now-serving__dot, .story__badge { animation: none; }
-  .loader img, .anim, .line__in, .anim-pop, .now-serving b.swap, .dish.is-shown { animation-name: fadeIn; }
+  .anim, .line__in, .anim-pop, .now-serving b.swap, .dish.is-shown { animation-name: fadeIn; }
   .plate__img, .plate__img.is-active, .plate__img.is-leaving { transform: none; transition: opacity .8s ease; }
   .plate__img.is-leaving { transition: opacity .3s ease .8s; }
   .reveal { transform: none; }

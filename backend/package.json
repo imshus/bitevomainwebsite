@@ -10,11 +10,15 @@
     "start": "node src/server.js"
   },
   "nodemonConfig": {
-    "watch": ["src", ".env"],
+    "watch": [
+      "src",
+      ".env"
+    ],
     "ext": "js,json",
     "delay": 300
   },
   "dependencies": {
+    "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

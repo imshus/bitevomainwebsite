@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import compression from 'compression';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -34,9 +35,14 @@ function siteRoutes() {
   // The pages load Google Maps, Google sign-in, Google Fonts and menu photos from other sites, so they get
   // helmet's other headers but no Content-Security-Policy, the same as on a plain static host.
   site.use(helmet({ contentSecurityPolicy: false, crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' } }));
-  site.use(express.static(SITE_DIR, { index: false }));
+  // Caching: built files carry a content hash in their name (index-B2jOI582.js), so browsers keep them for a
+  // year; other files (logo, icons, banners) for a day; the page itself is always checked, so a new build shows up.
+  site.use(express.static(SITE_DIR, {
+    index: false,
+    setHeaders: (res, file) => res.setHeader('Cache-Control', /-[\w-]{8,}\.(js|css)$/.test(file) ? 'public, max-age=31536000, immutable' : 'public, max-age=86400'),
+  }));
   // Every other page address belongs to the website's router. /uploads/ (admin photos) is not a page.
-  site.get(/^(?!\/uploads\/)/, (req, res) => res.sendFile(path.join(SITE_DIR, 'index.html')));
+  site.get(/^(?!\/uploads\/)/, (req, res) => res.setHeader('Cache-Control', 'no-cache').sendFile(path.join(SITE_DIR, 'index.html')));
   return site;
 }
 
@@ -45,6 +51,7 @@ export function createApp() {
   app.disable('x-powered-by');
   if (config.trustProxy) app.set('trust proxy', 1);
 
+  app.use(compression()); // gzip: the site's code goes out at about a third of its size
   app.use('/api', helmet());
   app.use(cors({ origin: config.clientOrigins, credentials: true }));
   app.use(cookieParser());

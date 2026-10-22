@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
-import Loader from './components/Loader.jsx';
 import ScrollManager from './components/ScrollManager.jsx';
 import LiveOrder from './components/LiveOrder.jsx';
 import { CartBar } from './components/CartDrawer.jsx';
@@ -19,9 +18,6 @@ import Privacy from './pages/Privacy.jsx';
 import Terms from './pages/Terms.jsx';
 import NotFound from './pages/NotFound.jsx';
 
-// The logo intro only plays when a visitor first lands on the home page (the menu).
-const showIntro = window.location.pathname === '/';
-
 // The menu used to live at /menu: old links (and their tabs, e.g. /menu#drinks) still work.
 function MenuRedirect() {
   const { search, hash } = useLocation();
@@ -32,7 +28,6 @@ export default function App() {
   const { pathname } = useLocation();
   return (
     <>
-      {showIntro && <Loader />}
       <ScrollManager />
       <InviteCatcher />
       <Header />
