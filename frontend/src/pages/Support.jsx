@@ -58,7 +58,7 @@ function ContactForm() {
           <input type="text" name="name" autoComplete="name" defaultValue={customer?.name || ''} required />
         </label>
         <label>Phone number
-          <input type="tel" name="phone" autoComplete="tel" defaultValue={customer?.phone || ''} required />
+          <input type="tel" name="phone" autoComplete="tel" defaultValue={customer?.phone || customer?.deliveryPhone || ''} required />
         </label>
       </div>
       <div className="form__row">

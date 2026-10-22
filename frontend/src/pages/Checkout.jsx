@@ -1,23 +1,33 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+// Checkout, laid out like a food-delivery app: a header with the delivery time and address, the cart
+// with quick extras, "Complete your meal" add-ons, offers, delivery details, the bill, and a pay bar
+// pinned to the bottom. Styles in ../checkout.css.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../state/auth.jsx';
 import { useCart } from '../state/cart.jsx';
 import { useToast } from '../state/toast.jsx';
+import { useMenu } from '../state/menu.js';
 import { useDeliveryLocation, setDeliveryLocation, locationFromAddress } from '../state/location.js';
 import { PageHero } from '../components/Sections.jsx';
 import { VegMark, Stepper } from '../components/Dish.jsx';
 import AddressForm from '../components/AddressForm.jsx';
-import { useBottomBar } from '../components/CartDrawer.jsx';
-import { Bag, MapPin, Tag, User, Wallet, Close, Sparkle } from '../components/Icons.jsx';
+import { Bag, MapPin, Tag, Wallet, Close, Sparkle, Navigation, ChevronDown, Receipt } from '../components/Icons.jsx';
 import Modal from '../components/Modal.jsx';
 import Confetti from '../components/Confetti.jsx';
 import { money, addressLine, offerHeadline } from '../lib/format.js';
+import { srcSet } from '../lib/photo.js';
 import usePageTitle from '../lib/usePageTitle.js';
+import '../checkout.css';
 
 const LAST_ADDRESS = 'bitevo_last_address';
 const remember = id => { try { localStorage.setItem(LAST_ADDRESS, id); } catch { /* ignore */ } };
 const recall = () => { try { return localStorage.getItem(LAST_ADDRESS); } catch { return null; } };
+const DELIVERY_MINS = Number(import.meta.env.VITE_DELIVERY_MINS) || 30;
+
+const Back = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>;
+const Plus = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>;
+const Pencil = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4" /></svg>;
 
 // Re-prices the cart on the server whenever the cart, coupon, wallet choice or customer changes.
 function useQuote(cart, useWallet, customerId) {
@@ -91,25 +101,75 @@ function CouponCelebration({ coupon, onClose }) {
   );
 }
 
+// Small add-ons that aren't in the cart yet: cheaper dishes and bestsellers first.
+function CompleteMeal() {
+  const { data: menu } = useMenu();
+  const cart = useCart();
+  const picks = useMemo(() => {
+    if (!menu) return [];
+    const inCart = new Set(cart.lines.map(l => l.productId));
+    const score = p => (p.price <= 150 ? 0 : 2) - (p.isBestseller ? 1 : 0);
+    return menu.products
+      .filter(p => p.isAvailable && p.price > 1 && !inCart.has(p._id))
+      .sort((a, b) => score(a) - score(b) || a.price - b.price)
+      .slice(0, 10);
+  }, [menu, cart.lines]);
+  if (!picks.length) return null;
+
+  return (
+    <section className="co-card co-meal">
+      <h2 className="co-label">Complete your meal</h2>
+      <div className="co-meal__rail">
+        {picks.map(p => (
+          <article key={p._id} className="co-meal__item">
+            <div className="co-meal__img">
+              {p.image ? <img src={p.image} srcSet={srcSet(p.image)} sizes="104px" alt="" loading="lazy" decoding="async" /> : <span>{p.name[0]}</span>}
+              <button type="button" className="co-meal__add" onClick={() => cart.add(p)} aria-label={`Add ${p.name}`}><Plus /></button>
+            </div>
+            <span className="co-meal__name"><VegMark veg={p.isVeg} />{p.name}</span>
+            <span className="co-meal__price">{p.mrp > p.price && <s>{money(p.mrp)}</s>}{money(p.price)}</span>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function Checkout() {
   usePageTitle('Checkout');
   const navigate = useNavigate();
   const toast = useToast();
-  const { customer, ready, requireLogin } = useAuth();
+  const { customer, ready, requireLogin, setCustomer } = useAuth();
   const cart = useCart();
   const [useWallet, setUseWallet] = useState(false);
+  // Accounts made with an email address have no mobile number yet; deliveries need one.
+  const [deliveryPhone, setDeliveryPhone] = useState('');
+  const phoneInput = useRef(null);
+  useEffect(() => {
+    if (customer?.deliveryPhone) setDeliveryPhone(p => p || customer.deliveryPhone.replace(/^\+91\s*/, ''));
+  }, [customer?.deliveryPhone]);
   const [addressId, setAddressIdState] = useState(null);
   const deliveryLocation = useDeliveryLocation();
   // Choosing an address here also updates the "Delivering to" location shown on the menu.
   const setAddressId = id => { setAddressIdState(id); if (id) setDeliveryLocation(locationFromAddress({ _id: id })); };
   const [editing, setEditing] = useState(null); // address being added/edited
+  const [choosing, setChoosing] = useState(false); // the "Deliver to" sheet
   const [code, setCode] = useState('');
   const [note, setNote] = useState('');
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noCutlery, setNoCutlery] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState('');
   const signedIn = Boolean(customer?.name);
+  const needsPhone = signedIn && !customer.phone;
+  const phoneOk = /^[6-9]\d{9}$/.test(deliveryPhone.replace(/\D/g, ''));
   const { quote, setQuote, error: quoteError, refresh } = useQuote(cart, useWallet, signedIn ? customer._id : null);
-  useBottomBar(cart.lines.length > 0);
+
+  // Phones and tablets: this page has its own header with a back arrow instead of the site header.
+  useEffect(() => {
+    document.documentElement.classList.add('is-checkout-page');
+    return () => document.documentElement.classList.remove('is-checkout-page');
+  }, []);
 
   // Celebrate an offer once the server confirms it (only right after the customer applies it).
   const justApplied = useRef(null);
@@ -131,6 +191,7 @@ export default function Checkout() {
     const last = recall();
     setAddressIdState((chosen || (!deliveryLocation?.place && (addresses.find(a => a._id === last) || addresses[0])))?._id || null);
   }, [addresses, addressId, deliveryLocation]);
+  const selected = addresses.find(a => a._id === addressId);
 
   if (!cart.lines.length) {
     return (
@@ -141,7 +202,7 @@ export default function Checkout() {
             <div className="empty__icon"><Bag /></div>
             <h3>Your cart is empty</h3>
             <p>Add a few dishes from the menu and they’ll show up here.</p>
-            <Link to="/menu" className="btn btn--red btn--lg">Browse the menu</Link>
+            <Link to="/" className="btn btn--red btn--lg">Browse the menu</Link>
           </div>
         </section>
       </>
@@ -164,19 +225,31 @@ export default function Checkout() {
     setCode('');
   };
 
+  // Where to deliver: sign in first, then pick a saved address or add one.
+  const chooseAddress = async () => {
+    const who = signedIn ? customer : await requireLogin('Sign in to choose where we deliver.');
+    if (!who) return;
+    if (!(who.addresses || []).length) setEditing({});
+    else setChoosing(true);
+  };
+
   const place = async () => {
     setPlaceError('');
     const who = signedIn ? customer : await requireLogin('Sign in to place your order.');
     if (!who) return;
     if (!addressId) { setPlaceError('Add a delivery address first.'); return; }
+    if (!who.phone && !phoneOk) { setPlaceError('Add a 10-digit mobile number for delivery.'); phoneInput.current?.focus(); return; }
     setPlacing(true);
     try {
       const order = await api.placeOrder({
         items: cart.lines.map(l => ({ productId: l.productId, qty: l.qty })),
-        addressId, couponCode: cart.coupon, useWallet, note, expectedTotal: quote?.total,
+        addressId, couponCode: cart.coupon, useWallet, expectedTotal: quote?.total,
+        note: [note.trim(), noCutlery && 'No cutlery please'].filter(Boolean).join(' · ').slice(0, 200),
+        ...(!who.phone && { deliveryPhone: deliveryPhone.replace(/\D/g, '') }),
       });
       remember(addressId);
       cart.clear();
+      if (!who.phone) api.me().then(setCustomer, () => {}); // picks up the saved delivery number
       navigate(`/orders/${order._id}`, { state: { justPlaced: true } });
     } catch (err) {
       if (err.data?.quote) setQuote(err.data.quote);
@@ -190,167 +263,219 @@ export default function Checkout() {
   const blocker = !quote ? null
     : quote.unavailable.length ? 'Remove the dishes that are no longer available.'
     : quote.couponError ? 'Remove the offer, or update your cart to use it.'
+    : quote.storeItem?.error ? quote.storeItem.error
     : quote.itemTotal < quote.minOrderValue ? `The minimum order is ${money(quote.minOrderValue)}.`
     : null;
 
-  // The one main button (in the summary, and in the bar pinned to the bottom on phones).
-  const action = !signedIn ? { label: 'Sign in to order', short: 'Sign in to order', run: place }
-    : !addressId ? { label: 'Add a delivery address', short: 'Add address', run: () => setEditing({}) }
-    : { label: `Place order · ${quote ? money(quote.payable) : ''}`, short: 'Place order', run: place };
+  // The one main button, in the pay bar.
+  const action = !signedIn ? { label: 'Sign in to order', run: place }
+    : !addressId ? { label: 'Add address', run: chooseAddress }
+    : needsPhone && !phoneOk ? { label: 'Add mobile number', run: () => phoneInput.current?.focus() }
+    : { label: quote ? `Place order · ${money(quote.payable)}` : 'Place order', run: place };
   const actionDisabled = placing || !quote || Boolean(blocker);
+  const paidByWallet = quote?.payable === 0 && quote?.walletUsed > 0;
 
   return (
-    <>
-      <PageHero compact title={<>Almost <em>there!</em></>}>Check your order, pick an address and we’ll start cooking.</PageHero>
+    <div className="co">
+      <header className="co-head">
+        <div className="co-head__row">
+          <button type="button" className="co-head__back" onClick={() => navigate('/')} aria-label="Back to the menu"><Back /></button>
+          <div className="co-head__text">
+            <small>BiteVo Kitchen</small>
+            <button type="button" className="co-head__where" onClick={chooseAddress}>
+              <Navigation />
+              <span><b>{DELIVERY_MINS} mins</b> to {selected ? `${selected.label} | ${addressLine(selected)}` : signedIn ? 'add a delivery address' : 'your address'}</span>
+              <ChevronDown />
+            </button>
+          </div>
+        </div>
+        <p className="co-strip"><b>₹0</b> Packaging fee <i aria-hidden="true">·</i> <b>₹0</b> Platform fee</p>
+      </header>
 
-      <section className="section section--tight">
-        <div className="container checkout">
-          <div className="checkout__main">
-            {/* Account */}
-            <div className="panel">
-              <div className="panel__head"><span className="panel__icon"><User /></span><h2>Account</h2></div>
-              {!ready ? <p className="muted">Checking…</p> : signedIn ? (
-                <p className="panel__done">Ordering as <b>{customer.name}</b> · {customer.phone}</p>
-              ) : (
-                <div className="panel__cta">
-                  <p>Sign in with your mobile number to place the order and follow it live.</p>
-                  <button className="btn btn--red" onClick={() => requireLogin()}>{customer ? 'Add your name' : 'Sign in to continue'}</button>
+      <div className="co-body">
+        {/* Cart */}
+        <section className="co-card">
+          <ul className="co-items">
+            {cart.lines.map(l => {
+              const gone = quote?.unavailable.some(u => u.productId === l.productId);
+              return (
+                <li key={l.productId} className={`co-item${gone ? ' is-gone' : ''}`}>
+                  <span className="co-item__name"><VegMark veg={l.isVeg} /><span>{l.name}{gone && <small>No longer available</small>}</span></span>
+                  {gone
+                    ? <button type="button" className="link" onClick={() => cart.setQty(l.productId, 0)}>Remove</button>
+                    : <Stepper small qty={l.qty} label={l.name} onChange={n => cart.setQty(l.productId, n)} />}
+                  <span className="co-item__price">{money(l.price * l.qty)}</span>
+                </li>
+              );
+            })}
+            {quote?.items.filter(i => i.free).map(i => (
+              <li key={`free-${i.productId}`} className="co-item co-item--free">
+                <span className="co-item__name"><VegMark veg={i.isVeg} /><span>{i.qty > 1 ? `${i.qty} × ` : ''}{i.name}</span></span>
+                <span className="co-item__price"><s>{money(i.price * i.qty)}</s> FREE</span>
+              </li>
+            ))}
+          </ul>
+          <div className="co-chips">
+            <Link to="/" className="co-chip"><Plus />Add items</Link>
+            <button type="button" className={`co-chip${noteOpen || note ? ' is-on' : ''}`} onClick={() => setNoteOpen(o => !o)} aria-expanded={noteOpen}><Pencil />Cooking requests</button>
+            <label className={`co-chip${noCutlery ? ' is-on' : ''}`}>
+              <input type="checkbox" checked={noCutlery} onChange={e => setNoCutlery(e.target.checked)} />Don’t send cutlery
+            </label>
+          </div>
+          {noteOpen && (
+            <label className="field co-note">
+              <span className="visually-hidden">Cooking requests</span>
+              <textarea rows={2} maxLength={180} value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. Less spicy, no onions" autoFocus />
+            </label>
+          )}
+        </section>
+
+        <CompleteMeal />
+
+        {/* Offers */}
+        <section className="co-card">
+          <h2 className="co-label">Offers &amp; savings</h2>
+          <div className="coupon co-coupon">
+            {cart.coupon ? (
+              <div className={`coupon__applied${quote?.couponError ? ' has-error' : ''}`}>
+                <Tag />
+                <div>
+                  <b>{cart.coupon}</b>
+                  <small>{quote?.couponError || quote?.coupon?.message || 'Checking…'}</small>
                 </div>
-              )}
-            </div>
+                <button type="button" onClick={() => cart.setCoupon('')} aria-label="Remove offer"><Close /></button>
+              </div>
+            ) : (
+              <form className="coupon__form" onSubmit={e => { e.preventDefault(); applyCode(); }}>
+                <Tag />
+                <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="Offer code" maxLength={20} aria-label="Offer code" />
+                <button className="link" disabled={!code.trim()}>Apply</button>
+              </form>
+            )}
+            <Offers applied={cart.coupon} onApply={applyCode} />
+          </div>
+          {quote?.offers?.length > 0 && (
+            <ul className="co-perks">
+              {quote.offers.map(o => <li key={o.key}><Sparkle />{o.text}</li>)}
+            </ul>
+          )}
+          {signedIn && quote?.walletBalance > 0 && (
+            <label className={`co-wallet${useWallet ? ' is-on' : ''}`}>
+              <span className="co-wallet__icon"><Wallet /></span>
+              <span className="co-wallet__text">
+                <b>Use BiteVo wallet</b>
+                <small>Balance {money(quote.walletBalance)}{useWallet && quote.walletUsed ? ` · ${money(quote.walletUsed)} used` : ''}</small>
+              </span>
+              <input type="checkbox" role="switch" checked={useWallet} onChange={e => setUseWallet(e.target.checked)} />
+              <span className="co-switch" aria-hidden="true"><span /></span>
+            </label>
+          )}
+        </section>
 
-            {/* Address */}
-            <div className={`panel${signedIn ? '' : ' is-locked'}`}>
-              <div className="panel__head"><span className="panel__icon"><MapPin /></span><h2>Delivery address</h2></div>
-              {signedIn && (
-                <>
-                  <div className="addresses" role="radiogroup" aria-label="Delivery address">
-                    {addresses.map(a => (
-                      <label key={a._id} className={`address${addressId === a._id ? ' is-selected' : ''}`}>
-                        <input type="radio" name="address" checked={addressId === a._id} onChange={() => setAddressId(a._id)} />
-                        <span className="address__body">
-                          <b>{a.label}</b>
-                          <span>{addressLine(a)}</span>
-                        </span>
-                        <button type="button" className="link" onClick={e => { e.preventDefault(); setEditing(a); }}>Edit</button>
-                      </label>
-                    ))}
+        {/* Delivery details */}
+        <section className="co-card">
+          <h2 className="co-label">Delivery details</h2>
+          {!ready ? <p className="muted">Checking…</p> : !signedIn ? (
+            <div className="co-signin">
+              <p>Sign in to choose an address and place the order.</p>
+              <button type="button" className="btn btn--red" onClick={() => requireLogin()}>{customer ? 'Add your name' : 'Sign in'}</button>
+            </div>
+          ) : (
+            <>
+              <button type="button" className="co-row" onClick={chooseAddress}>
+                <span className="co-row__icon"><MapPin /></span>
+                <span className="co-row__text">
+                  {selected ? <><b>Deliver to {selected.label}</b><small>{addressLine(selected)}</small></> : <><b>Add a delivery address</b><small>We’ll need it to deliver your order</small></>}
+                </span>
+                <span className="co-row__go">{selected ? 'Change' : 'Add'}</span>
+              </button>
+              <p className="co-who">Ordering as <b>{customer.name}</b> · {customer.phone || customer.email}</p>
+              {needsPhone && (
+                <label className="field delivery-phone">
+                  <span>Mobile number for delivery</span>
+                  <div className="phone-input">
+                    <span>+91</span>
+                    <input
+                      ref={phoneInput} type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" required
+                      value={deliveryPhone} onChange={e => setDeliveryPhone(e.target.value.replace(/[^\d ]/g, '').slice(0, 11))}
+                    />
                   </div>
-                  <button type="button" className="btn btn--outline" onClick={() => setEditing({})}>+ Add a new address</button>
-                </>
-              )}
-              {!signedIn && <p className="muted">Sign in to choose where we deliver.</p>}
-            </div>
-
-            {/* Payment */}
-            <div className={`panel${signedIn ? '' : ' is-locked'}`}>
-              <div className="panel__head"><span className="panel__icon"><Wallet /></span><h2>Payment</h2></div>
-              {signedIn && quote?.walletBalance > 0 && (
-                <label className="wallet-opt">
-                  <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.checked)} />
-                  <span>
-                    <b>Use BiteVo wallet</b>
-                    <small>Balance {money(quote.walletBalance)}{useWallet && quote.walletUsed ? ` · ${money(quote.walletUsed)} will be used` : ''}</small>
-                  </span>
+                  <small>Our delivery partner calls this number if they can’t find you.</small>
                 </label>
               )}
-              {quote?.payable === 0 && quote?.walletUsed > 0 ? (
-                <p className="pay-opt"><b>Paid fully from your wallet</b><small>Nothing to pay on delivery.</small></p>
-              ) : (
-                <p className="pay-opt"><b>Pay on delivery</b><small>Pay {quote ? money(quote.payable) : 'the total'} in cash or by UPI to the delivery partner.</small></p>
-              )}
-              <label className="field">
-                <span>Note for the kitchen <i>(optional)</i></span>
-                <textarea rows={2} maxLength={200} value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. Less spicy, no onions, ring the bell twice" />
-              </label>
-            </div>
-          </div>
+            </>
+          )}
+        </section>
 
-          <aside className="checkout__summary">
-            <div className="panel panel--summary">
-              <h2>Your order</h2>
-              <ul className="summary__lines">
-                {cart.lines.map(l => {
-                  const gone = quote?.unavailable.some(u => u.productId === l.productId);
-                  return (
-                    <li key={l.productId} className={`line${gone ? ' is-gone' : ''}`}>
-                      <div className="line__info">
-                        <span className="line__name"><VegMark veg={l.isVeg} />{l.name}</span>
-                        {gone ? <span className="line__warn">No longer available</span> : <span className="line__price">{money(l.price * l.qty)}</span>}
-                      </div>
-                      {gone
-                        ? <button type="button" className="link" onClick={() => cart.setQty(l.productId, 0)}>Remove</button>
-                        : <Stepper small qty={l.qty} label={l.name} onChange={n => cart.setQty(l.productId, n)} />}
-                    </li>
-                  );
-                })}
-                {quote?.items.filter(i => i.free).map(i => (
-                  <li key={`free-${i.productId}`} className="line line--free">
-                    <div className="line__info">
-                      <span className="line__name"><VegMark veg={i.isVeg} />{i.qty > 1 ? `${i.qty} × ` : ''}{i.name}</span>
-                      <span className="line__price"><s>{money(i.price * i.qty)}</s> FREE</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <Link to="/menu" className="cart__more">+ Add more dishes</Link>
-
-              <div className="coupon">
-                {cart.coupon ? (
-                  <div className={`coupon__applied${quote?.couponError ? ' has-error' : ''}`}>
-                    <Tag />
-                    <div>
-                      <b>{cart.coupon}</b>
-                      <small>{quote?.couponError || quote?.coupon?.message || 'Checking…'}</small>
-                    </div>
-                    <button type="button" onClick={() => cart.setCoupon('')} aria-label="Remove offer"><Close /></button>
-                  </div>
-                ) : (
-                  <form className="coupon__form" onSubmit={e => { e.preventDefault(); applyCode(); }}>
-                    <Tag />
-                    <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="Offer code" maxLength={20} aria-label="Offer code" />
-                    <button className="link" disabled={!code.trim()}>Apply</button>
-                  </form>
-                )}
-                <Offers applied={cart.coupon} onApply={applyCode} />
+        {/* Bill */}
+        {quoteError && <p className="form-error">{quoteError.message}</p>}
+        {quote && (
+          <section className="co-card co-bill">
+            <div className="co-bill__head">
+              <span className="co-bill__icon"><Receipt /></span>
+              <div>
+                <b>To pay {money(quote.payable)}</b>
+                <small>Incl. all taxes &amp; charges</small>
               </div>
-
-              {quoteError && <p className="form-error">{quoteError.message}</p>}
-              {quote && (
-                <dl className="bill">
-                  <div><dt>Item total</dt><dd>{money(quote.subtotal)}</dd></div>
-                  <div><dt>Delivery fee</dt><dd>{quote.deliveryFee ? money(quote.deliveryFee) : <span className="free">FREE</span>}</dd></div>
-                  {quote.deliveryFee > 0 && quote.itemTotal < quote.freeDeliveryAbove && (
-                    <p className="bill__hint">Add {money(quote.freeDeliveryAbove - quote.itemTotal)} more for free delivery</p>
-                  )}
-                  {quote.discount > 0 && <div className="bill__save"><dt>Offer ({quote.coupon?.code})</dt><dd>−{money(quote.discount)}</dd></div>}
-                  {quote.walletUsed > 0 && <div className="bill__save"><dt>From wallet</dt><dd>−{money(quote.walletUsed)}</dd></div>}
-                  <div className="bill__total"><dt>To pay</dt><dd><span key={quote.payable} className="pop">{money(quote.payable)}</span></dd></div>
-                  {quote.cashback > 0 && <p className="bill__hint bill__hint--green">{money(quote.cashback)} cashback will be added to your wallet after delivery</p>}
-                </dl>
-              )}
-
-              {placeError && <p className="form-error" role="alert">{placeError}</p>}
-              {blocker && <p className="form-error">{blocker}</p>}
-              <button className="btn btn--red btn--block btn--lg place-btn" onClick={action.run} disabled={actionDisabled}>
-                {placing ? 'Placing your order…' : action.label}
-              </button>
-              <p className="fine">By placing this order you agree to our <Link to="/terms">Terms</Link>. You can cancel free of charge until the kitchen starts cooking.</p>
+              <span className="co-stamp" aria-hidden="true">No hidden<br />fees</span>
             </div>
-          </aside>
-        </div>
-      </section>
+            <dl className="co-bill__rows">
+              <div><dt>Item total</dt><dd>{money(quote.subtotal)}</dd></div>
+              <div>
+                <dt>Delivery fee</dt>
+                <dd>{quote.deliveryFee ? money(quote.deliveryFee) : <span className="co-free">FREE</span>}</dd>
+              </div>
+              {quote.deliveryNote && <p className="co-bill__hint">{quote.deliveryNote}</p>}
+              {quote.discount > 0 && <div className="is-save"><dt>{quote.coupon?.code ? `Offer (${quote.coupon.code})` : 'Offers applied'}</dt><dd>−{money(quote.discount)}</dd></div>}
+              {quote.walletUsed > 0 && <div className="is-save"><dt>From wallet</dt><dd>−{money(quote.walletUsed)}</dd></div>}
+            </dl>
+            <p className="co-bill__nofees">THAT’S IT. No unnecessary fees. Ever!</p>
+            <div className="co-bill__total"><span>To pay</span><b key={quote.payable} className="pop">{money(quote.payable)}</b></div>
+            {(quote.cashback || 0) + (quote.deliveryCashback || 0) > 0 && (
+              <p className="co-bill__cashback">{money((quote.cashback || 0) + (quote.deliveryCashback || 0))} cashback will be added to your wallet after delivery</p>
+            )}
+          </section>
+        )}
 
-      {/* Phones and tablets: total and the main button stay in reach at the bottom of the screen. */}
-      <div className="checkout-bar">
-        <div className="checkout-bar__total">
-          <small className={blocker ? 'is-error' : ''}>{blocker || (quote?.walletUsed ? 'To pay after wallet' : 'To pay')}</small>
-          <b key={quote?.payable} className="pop">{quote ? money(quote.payable) : '…'}</b>
-        </div>
-        <button className="btn btn--red btn--lg" onClick={action.run} disabled={actionDisabled}>
-          {placing ? 'Placing…' : action.short}
-        </button>
+        <p className="co-policy">
+          <b>Cancellation policy:</b> please double-check your order and address. You can cancel free of charge until the kitchen starts cooking.
+          By placing this order you agree to our <Link to="/terms">Terms</Link>.
+        </p>
       </div>
+
+      {/* Pay bar, pinned to the bottom of the screen while the page scrolls */}
+      <div className="co-pay">
+        {(placeError || blocker) && <p className="co-pay__error" role="alert">{placeError || blocker}</p>}
+        <div className="co-pay__row">
+          <div className="co-pay__using">
+            <small>Pay using</small>
+            <b>{paidByWallet ? 'BiteVo Wallet' : 'Cash on Delivery'}</b>
+            <span>{paidByWallet ? 'Nothing to pay on delivery' : 'Pay cash or ask for a UPI QR code'}</span>
+          </div>
+          <button type="button" className="co-pay__btn" onClick={action.run} disabled={actionDisabled}>
+            {placing ? 'Placing your order…' : action.label}
+          </button>
+        </div>
+      </div>
+
+      {choosing && (
+        <Modal onClose={() => setChoosing(false)} label="Choose a delivery address" className="co-addr-sheet">
+          <h2>Deliver to</h2>
+          <div className="addresses" role="radiogroup" aria-label="Delivery address">
+            {addresses.map(a => (
+              <label key={a._id} className={`address${addressId === a._id ? ' is-selected' : ''}`}>
+                <input type="radio" name="address" checked={addressId === a._id} onChange={() => { setAddressId(a._id); setChoosing(false); }} />
+                <span className="address__body">
+                  <b>{a.label}</b>
+                  <span>{addressLine(a)}</span>
+                </span>
+                <button type="button" className="link" onClick={e => { e.preventDefault(); setChoosing(false); setEditing(a); }}>Edit</button>
+              </label>
+            ))}
+          </div>
+          <button type="button" className="btn btn--outline btn--block" onClick={() => { setChoosing(false); setEditing({}); }}>+ Add a new address</button>
+        </Modal>
+      )}
 
       {celebrate && <CouponCelebration coupon={celebrate} onClose={closeCelebration} />}
 
@@ -362,6 +487,6 @@ export default function Checkout() {
           onSaved={a => setAddressId(a._id)}
         />
       )}
-    </>
+    </div>
   );
 }

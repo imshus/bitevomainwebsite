@@ -181,11 +181,16 @@ export default function OrderDetail() {
             <dl className="bill">
               <div><dt>Item total</dt><dd>{money(order.subtotal)}</dd></div>
               <div><dt>Delivery fee</dt><dd>{order.deliveryFee ? money(order.deliveryFee) : <span className="free">FREE</span>}</dd></div>
-              {order.discount > 0 && <div className="bill__save"><dt>Offer ({order.couponCode})</dt><dd>−{money(order.discount)}</dd></div>}
+              {order.discount > 0 && <div className="bill__save"><dt>{order.couponCode ? `Offer (${order.couponCode})` : 'Offers'}</dt><dd>−{money(order.discount)}</dd></div>}
               {order.walletUsed > 0 && <div className="bill__save"><dt>Paid from wallet</dt><dd>−{money(order.walletUsed)}</dd></div>}
               <div className="bill__total"><dt>{order.status === 'delivered' ? 'Paid' : order.status === 'cancelled' ? 'Order total' : 'To pay on delivery'}</dt><dd>{money(order.total - order.walletUsed)}</dd></div>
               {order.cashback > 0 && order.status !== 'cancelled' && (
                 <p className="bill__hint bill__hint--green">{money(order.cashback)} cashback {order.status === 'delivered' ? 'added to' : 'goes to'} your wallet{order.status === 'delivered' ? '' : ' after delivery'}</p>
+              )}
+              {order.deliveryCashback > 0 && order.status !== 'cancelled' && (
+                <p className="bill__hint bill__hint--green">
+                  {order.deliveryCashbackPaid ? `${money(order.deliveryCashback)} order cashback added to your wallet` : `${money(order.deliveryCashback)} order cashback goes to your wallet after delivery`}
+                </p>
               )}
             </dl>
           </div>

@@ -4,6 +4,7 @@ import { connectStore, store } from './db/index.js';
 import { createApp } from './app.js';
 import { seedStarterMenu } from './demo/starterMenu.js';
 import { startReferralChecks } from './lib/referrals.js';
+import { startOfferChecks } from './lib/offers.js';
 
 try {
   await connectStore();
@@ -22,6 +23,7 @@ if (store.kind === 'file') {
 if (config.otpDevMode) console.log('OTP dev mode: sign-in codes are shown on screen and printed here instead of sent by SMS.');
 
 startReferralChecks();
+startOfferChecks();
 
 const server = createApp().listen(config.port, () => {
   console.log(`BiteVo website API listening on http://localhost:${config.port}`);

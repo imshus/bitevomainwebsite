@@ -47,12 +47,12 @@ export default function Header() {
           </picture>
         </Link>
         <nav className={`nav__links${open ? ' is-open' : ''}`} id="navLinks" aria-label="Main">
-          <NavLink to="/" end className={navClass}>Home</NavLink>
-          <NavLink to="/menu" className={navClass}>Menu</NavLink>
+          <NavLink to="/" end className={navClass}>Menu</NavLink>
           {customer && <NavLink to="/orders" className={navClass}>My Orders</NavLink>}
+          {customer && <NavLink to="/wallet" className={navClass}>Wallet</NavLink>}
           <NavLink to="/about" className={navClass}>About</NavLink>
           <NavLink to="/support" className={navClass}>Support</NavLink>
-          <Link to="/menu" className="btn btn--red nav__cta">Order Now</Link>
+          <Link to="/" className="btn btn--red nav__cta">Order Now</Link>
         </nav>
         <div className="nav__actions">
           {ready && (customer ? (

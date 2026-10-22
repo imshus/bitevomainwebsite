@@ -1,6 +1,7 @@
-// Sign-in sheet: mobile number → 6-digit code → (new customers) their name, and a friend's referral
-// code if they have one (filled in from an invite link). Or "Continue with Google": a linked Google
-// account signs straight in; a new one adds its mobile number once (deliveries need it).
+// Sign-in sheet: mobile number or email address → 6-digit code → (new customers) their name, and a
+// friend's referral code if they have one (filled in from an invite link). Or "Continue with Google":
+// a linked Google account signs straight in; a new one adds its mobile number once (deliveries need it).
+// Accounts made with an email address give a delivery number at checkout instead.
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
@@ -8,13 +9,16 @@ import { useConfig } from '../state/menu.js';
 import { getInvite, clearInvite } from '../lib/invite.js';
 import Modal from './Modal.jsx';
 import GoogleButton from './GoogleButton.jsx';
-import { Sparkle } from './Icons.jsx';
+import { Sparkle, Mail, Phone } from './Icons.jsx';
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginModal({ reason, existing, onDone }) {
   // A signed-in customer without a name (they closed the sheet last time) goes straight to the name step.
   const [step, setStep] = useState(existing && !existing.name ? 'name' : 'phone');
   const [phone, setPhone] = useState('');
-  const [sent, setSent] = useState(null); // { phone, devCode, resendAfterSecs }
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(null); // { phone } or { email }, with devCode and resendAfterSecs
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const { data: config } = useConfig();
@@ -41,21 +45,27 @@ export default function LoginModal({ reason, existing, onDone }) {
     try { await fn(); } catch (err) { setError(err.message); } finally { setBusy(false); }
   };
 
-  const sendCode = () => run(async () => {
-    const result = await api.sendOtp(phone);
+  const sendCode = via => run(async () => {
+    const result = via === 'email' ? await api.sendEmailCode(email) : await api.sendOtp(phone);
     setSent(result);
     setCode('');
     setWait(result.resendAfterSecs || 30);
     setStep('code');
   });
 
+  // New accounts see the name step (name already filled in from Google) for the referral code.
+  const signedInAs = (signedIn, isNew) => {
+    if (signedIn.name && !(isNew && config?.referral)) onDone(signedIn);
+    else { setCustomer(signedIn); setName(signedIn.name || ''); setStep('name'); }
+  };
+
   // A wrong code shakes the boxes and clears them for another try.
   const verify = c => run(async () => {
     try {
-      const { customer: signedIn, isNew } = await api.verifyOtp(sent.phone, c, google?.ticket);
-      // New accounts see the name step (name already filled in from Google) for the referral code.
-      if (signedIn.name && !(isNew && config?.referral)) onDone(signedIn);
-      else { setCustomer(signedIn); setName(signedIn.name || ''); setStep('name'); }
+      const { customer: signedIn, isNew } = sent.email
+        ? await api.verifyEmailCode(sent.email, c)
+        : await api.verifyOtp(sent.phone, c, google?.ticket);
+      signedInAs(signedIn, isNew);
     } catch (err) {
       setCode('');
       setShake(true);
@@ -77,8 +87,7 @@ export default function LoginModal({ reason, existing, onDone }) {
   const googleSignIn = credential => run(async () => {
     const result = await api.googleLogin(credential);
     if (result.needsPhone) { setGoogle(result); setStep('phone'); input.current?.focus(); return; }
-    if (result.customer.name) onDone(result.customer);
-    else { setCustomer(result.customer); setStep('name'); }
+    signedInAs(result.customer, false);
   });
 
   const onCode = value => {
@@ -90,11 +99,13 @@ export default function LoginModal({ reason, existing, onDone }) {
   // Closing at the name step keeps the customer signed in, but they'll be asked for a name before ordering.
   const close = () => onDone(step === 'name' && customer ? { ...customer } : null);
 
+  const fine = <p className="login__fine">By continuing you agree to our <Link to="/terms" onClick={close}>Terms</Link> and <Link to="/privacy" onClick={close}>Privacy Policy</Link>.</p>;
+
   return (
     <Modal onClose={close} label="Sign in" className="login">
       <img className="login__logo" src="/assets/mark.png" alt="" width="56" height="56" />
       {step === 'phone' && (
-        <form className="login__step" onSubmit={e => { e.preventDefault(); sendCode(); }}>
+        <form className="login__step" onSubmit={e => { e.preventDefault(); sendCode('phone'); }}>
           <h2>{google ? 'Add your mobile number' : 'Sign in to BiteVo'}</h2>
           {google ? (
             <p className="login__lead">Signed in with Google as <b>{google.email}</b>. Add your mobile number to finish. Our delivery partner needs it, and you only do this once.</p>
@@ -121,7 +132,32 @@ export default function LoginModal({ reason, existing, onDone }) {
           <button className="btn btn--red btn--block" disabled={busy || phone.replace(/\D/g, '').length < 10}>
             {busy ? 'Sending…' : 'Send code'}
           </button>
-          <p className="login__fine">By continuing you agree to our <Link to="/terms" onClick={close}>Terms</Link> and <Link to="/privacy" onClick={close}>Privacy Policy</Link>.</p>
+          {config?.emailLogin && !google && (
+            <button type="button" className="btn btn--outline btn--block login__switch" onClick={() => setStep('email')}>
+              <Mail />Sign in with email instead
+            </button>
+          )}
+          {fine}
+        </form>
+      )}
+
+      {step === 'email' && (
+        <form className="login__step" onSubmit={e => { e.preventDefault(); sendCode('email'); }}>
+          <h2>Sign in with email</h2>
+          <p className="login__lead">Enter your email address. We’ll email you a 6-digit code to sign in.</p>
+          <label className="field">
+            <span>Email address</span>
+            <input
+              ref={input} type="email" inputMode="email" autoComplete="email" enterKeyHint="send" placeholder="you@example.com"
+              value={email} onChange={e => setEmail(e.target.value.trim())} maxLength={120} required
+            />
+          </label>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <button className="btn btn--red btn--block" disabled={busy || !EMAIL.test(email)}>{busy ? 'Sending…' : 'Send code'}</button>
+          <button type="button" className="btn btn--outline btn--block login__switch" onClick={() => setStep('phone')}>
+            <Phone />Use your mobile number instead
+          </button>
+          {fine}
         </form>
       )}
 
@@ -129,11 +165,12 @@ export default function LoginModal({ reason, existing, onDone }) {
         <form className="login__step" onSubmit={e => { e.preventDefault(); verify(code); }}>
           <h2>Enter the code</h2>
           <p className="login__lead">
-            We sent a 6-digit code to <b>{sent.phone}</b>. <button type="button" className="link" onClick={() => setStep('phone')}>Change</button>
+            {sent.email ? 'We emailed' : 'We sent'} a 6-digit code to <b>{sent.phone || sent.email}</b>.{' '}
+            <button type="button" className="link" onClick={() => setStep(sent.email ? 'email' : 'phone')}>Change</button>
           </p>
           {sent.devCode && (
             <div className="dev-code">
-              <span>Test mode — no SMS is sent. Your code is <b>{sent.devCode}</b></span>
+              <span>Test mode — no {sent.email ? 'email' : 'SMS'} is sent. Your code is <b>{sent.devCode}</b></span>
               <button type="button" className="link" onClick={() => onCode(sent.devCode)}>Fill it in</button>
             </div>
           )}
@@ -155,7 +192,7 @@ export default function LoginModal({ reason, existing, onDone }) {
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="btn btn--red btn--block" disabled={busy || code.length !== 6}>{busy ? 'Checking…' : 'Verify & continue'}</button>
           <p className="login__fine">
-            Didn’t get it? {wait > 0 ? `Resend in ${wait}s` : <button type="button" className="link" onClick={sendCode} disabled={busy}>Send a new code</button>}
+            Didn’t get it? {wait > 0 ? `Resend in ${wait}s` : <button type="button" className="link" onClick={() => sendCode(sent.email ? 'email' : 'phone')} disabled={busy}>Send a new code</button>}
           </p>
         </form>
       )}

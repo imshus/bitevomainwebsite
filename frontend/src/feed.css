@@ -94,6 +94,24 @@
   .dish-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
 }
 
+/* The same cards in a sideways row (each section on the "All" tab); the next card peeks in at the edge */
+.dish-rail {
+  display: flex; gap: 12px; margin: 0 -16px; padding: 2px 16px 12px;
+  overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; scrollbar-width: none;
+}
+.dish-rail::-webkit-scrollbar { display: none; }
+.dish-rail > .dish--row { flex: 0 0 min(340px, 86%); scroll-snap-align: start; }
+@media (min-width: 640px) {
+  .dish-rail { gap: 16px; }
+  .dish-rail > .dish--row { flex-basis: 380px; }
+}
+/* With a mouse, a slim scrollbar shows the rows can be scrolled */
+@media (hover: hover) and (pointer: fine) {
+  .dish-rail, .tiles { scrollbar-width: thin; scrollbar-color: #E0C9C9 transparent; }
+  .dish-rail::-webkit-scrollbar, .tiles::-webkit-scrollbar { display: block; height: 6px; }
+  .dish-rail::-webkit-scrollbar-thumb, .tiles::-webkit-scrollbar-thumb { background: #E0C9C9; border-radius: 3px; }
+}
+
 /* Filters and sort sheets */
 .filters-sheet h2 { margin-bottom: 4px; padding-right: 44px; }
 .filters-sheet h3 { margin: 20px 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
@@ -158,3 +176,17 @@
   .cart-bar__saved { font-size: 12.5px; }
   .cart-bar__go { padding: 9px 12px 9px 16px; font-size: 14.5px; }
 }
+
+/* The ₹1 store's lock (StoreLock.jsx): on the ₹1 Store section and in the cart */
+.store-lock {
+  display: flex; align-items: center; gap: 8px; margin: -4px 0 14px; padding: 9px 12px; border-radius: 10px;
+  background: var(--red-tint); border: 1px solid var(--line); color: #4A3A3A; font-size: 13.5px; line-height: 1.4;
+}
+.store-lock svg { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--red); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.store-lock b { color: var(--ink); }
+.store-lock a { color: var(--red); font-weight: 600; }
+.store-lock--warn { background: #FFF4E5; border-color: #F5D9A8; color: #6B4A00; }
+.store-lock--warn svg { stroke: #B26A00; }
+.store-lock--open { background: var(--green-soft); border-color: #CDE8C9; color: #2C6B23; }
+.store-lock--open svg { stroke: #2E9B3E; }
+.cart .store-lock { margin: 0 0 6px; }

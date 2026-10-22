@@ -6,8 +6,13 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "dev": "node --watch src/server.js --port 4001",
+    "dev": "nodemon src/server.js --port 4001",
     "start": "node src/server.js"
+  },
+  "nodemonConfig": {
+    "watch": ["src", ".env"],
+    "ext": "js,json",
+    "delay": 300
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
@@ -21,5 +26,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

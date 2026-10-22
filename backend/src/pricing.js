@@ -3,6 +3,7 @@
 import { store } from './db/index.js';
 import { config } from './config.js';
 import { couponStatus, couponValue, money } from './lib/rules.js';
+import { isStoreItem, freeCoffee } from './lib/offers.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -30,8 +31,12 @@ async function priceLines(rawItems) {
     const qty = Math.round(Number(item?.qty) || 0);
     if (id && qty > 0) wanted.set(id, Math.min(MAX_QTY, (wanted.get(id) || 0) + qty));
   }
-  const products = await store.find('products', { _id: { $in: [...wanted.keys()] } });
+  const [products, categories] = await Promise.all([
+    store.find('products', { _id: { $in: [...wanted.keys()] } }),
+    store.find('categories'),
+  ]);
   const byId = new Map(products.map(p => [p._id, p]));
+  const labelOf = new Map(categories.map(c => [c.key, c.label || '']));
   const lines = [];
   const unavailable = [];
   for (const [productId, qty] of wanted) {
@@ -40,7 +45,10 @@ async function priceLines(rawItems) {
       unavailable.push({ productId, name: p?.name || 'A dish that’s no longer on the menu' });
       continue;
     }
-    lines.push({ productId: p._id, name: p.name, category: p.category, price: p.price, qty, isVeg: Boolean(p.isVeg) });
+    lines.push({
+      productId: p._id, name: p.name, category: p.category, price: p.price, qty, isVeg: Boolean(p.isVeg),
+      ...(isStoreItem(p, labelOf.get(p.category)) && { store: true }),
+    });
   }
   return { lines, unavailable };
 }
@@ -64,17 +72,38 @@ async function couponProblem(coupon, subtotal, customer) {
   return null;
 }
 
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : { 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+
 /**
  * The full bill for a cart.
- * Returns { items, unavailable, subtotal, deliveryFee, discount, cashback, coupon, couponError,
- *           total, walletBalance, walletUsed, payable, paymentMethod, minOrderValue, freeDeliveryAbove }.
- * A free-item coupon adds its dish as a line marked `free`, priced normally and taken off as discount
- * (the way the admin panel reports coupon value).
+ * Returns { items, unavailable, itemTotal, subtotal, deliveryFee, discount, cashback, coupon, couponError,
+ *           total, walletBalance, walletUsed, payable, paymentMethod, minOrderValue,
+ *           firstOrder, freeDelivery, deliveryNote, freeCoffee, storeItem, deliveryCashback, offers }.
+ * A free-item coupon, and the first order's free Cold Coffee, add their dish as a line marked `free`,
+ * priced normally and taken off as discount (the way the admin panel reports coupon value).
+ * Guests are quoted as new customers (first order, free delivery); the order is re-quoted once they sign in.
  */
 export async function quote({ items, couponCode, useWallet }, customer) {
   const { lines, unavailable } = await priceLines(items);
   const itemTotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
-  const deliveryFee = itemTotal === 0 || itemTotal >= config.freeDeliveryAbove ? 0 : config.deliveryFee;
+  const { offers } = config;
+
+  // Free delivery on the first few orders (cancelled ones don't count), then the delivery fee.
+  const pastOrders = customer ? await store.count('orders', { customerId: customer._id, status: { $ne: 'cancelled' } }) : 0;
+  const firstOrder = pastOrders === 0;
+  const freeLeft = Math.max(0, config.freeDeliveryOrders - pastOrders); // including this order
+  const deliveryFee = itemTotal === 0 || freeLeft > 0 ? 0 : config.deliveryFee;
+  const deliveryNote = freeLeft > 0
+    ? (customer ? `Free delivery: your ${ordinal(pastOrders + 1)} of ${config.freeDeliveryOrders} free deliveries` : `Free delivery on your first ${config.freeDeliveryOrders} orders`)
+    : config.freeDeliveryOrders > 0 ? `${money(config.deliveryFee)} delivery after your first ${config.freeDeliveryOrders} orders` : null;
+
+  // One ₹1 store item per order, once the other items reach storeUnlockAt.
+  const storeQty = lines.filter(l => l.store).reduce((s, l) => s + l.qty, 0);
+  const otherItemsTotal = lines.filter(l => !l.store).reduce((s, l) => s + l.price * l.qty, 0);
+  const unlockAt = offers.storeUnlockAt;
+  let storeError = null;
+  if (unlockAt > 0 && storeQty > 1) storeError = 'Only one ₹1 store item per order. Remove the extra to continue.';
+  else if (unlockAt > 0 && storeQty === 1 && otherItemsTotal < unlockAt) storeError = `Add ${money(unlockAt - otherItemsTotal)} more to unlock your ₹1 item.`;
 
   let coupon = null;
   let couponError = null;
@@ -95,11 +124,22 @@ export async function quote({ items, couponCode, useWallet }, customer) {
     }
   }
 
+  // A free Cold Coffee on the first order of freeCoffeeFrom or more (skipped if none is available).
+  let coffee = null;
+  if (offers.freeCoffeeFrom > 0 && firstOrder && itemTotal >= offers.freeCoffeeFrom) {
+    coffee = await freeCoffee();
+    if (coffee) {
+      lines.push({ productId: coffee._id, name: coffee.name, category: coffee.category, price: coffee.price, qty: 1, isVeg: Boolean(coffee.isVeg), free: true, offer: 'first_order_coffee' });
+      discount += coffee.price;
+    }
+  }
+
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const total = Math.max(0, subtotal + deliveryFee - discount);
   const balance = customer ? await walletBalance(customer._id) : 0;
   const walletUsed = useWallet && customer ? Math.max(0, Math.min(balance, total)) : 0;
   const payable = total - walletUsed;
+  const deliveryCashback = lines.length ? offers.deliveryCashback : 0;
 
   return {
     items: lines,
@@ -117,7 +157,19 @@ export async function quote({ items, couponCode, useWallet }, customer) {
     payable,
     paymentMethod: walletUsed > 0 && payable === 0 ? 'Wallet' : 'Cash on delivery',
     minOrderValue: config.minOrderValue,
-    freeDeliveryAbove: config.freeDeliveryAbove,
+    freeDeliveryAbove: null, // dropped: delivery is free on the first orders instead (see freeDelivery)
+    // The "Order more, save more" offers on this bill:
+    firstOrder,
+    freeDelivery: { orders: config.freeDeliveryOrders, left: freeLeft, applied: freeLeft > 0 && itemTotal > 0 },
+    deliveryNote,
+    freeCoffee: coffee ? { name: coffee.name, value: coffee.price } : null,
+    storeItem: unlockAt > 0 ? { unlockAt, otherItemsTotal, moreNeeded: Math.max(0, unlockAt - otherItemsTotal), unlocked: otherItemsTotal >= unlockAt, inCart: storeQty, error: storeError } : null,
+    deliveryCashback,
+    offers: [
+      freeLeft > 0 && itemTotal > 0 && { key: 'free_delivery', text: deliveryNote },
+      coffee && { key: 'first_order_coffee', text: `Free ${coffee.name} on your first order` },
+      deliveryCashback > 0 && { key: 'delivery_cashback', text: `${money(deliveryCashback)} cashback to your wallet after delivery` },
+    ].filter(Boolean),
   };
 }
 

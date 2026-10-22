@@ -4,12 +4,13 @@ import { Router } from 'express';
 import { store } from '../db/index.js';
 import { objectId } from '../lib/ids.js';
 import { badRequest, notFound, unauthorized, nowIso, startOfToday, text } from '../lib/http.js';
-import { serialize, money } from '../lib/rules.js';
+import { serialize, money, normalizePhone } from '../lib/rules.js';
 import { getSettings, CUSTOMER_CANCEL_REASON } from '../lib/settings.js';
 import { deliveryCheck } from '../lib/maps.js';
 import { sendMail, orderEmail } from '../lib/mail.js';
 import { requireCustomer, optionalCustomer } from '../auth.js';
 import { quote, hasOrdered } from '../pricing.js';
+import { settleOffers } from '../lib/offers.js';
 
 export const router = Router();
 
@@ -31,6 +32,8 @@ const publicOrder = o => ({
   deliveryFee: o.deliveryFee,
   discount: o.discount,
   cashback: o.cashback,
+  deliveryCashback: o.deliveryCashback || 0,
+  deliveryCashbackPaid: Boolean(o.deliveryCashbackPaidAt),
   couponCode: o.couponCode,
   total: o.total,
   walletUsed: o.walletUsed || 0,
@@ -53,12 +56,15 @@ async function ownOrder(req) {
   return order;
 }
 
+// Both first pay any cashback that's due, so a just-delivered order shows it as added to the wallet.
 router.get('/', async (req, res) => {
+  await settleOffers(req.customer._id);
   const orders = await store.find('orders', { customerId: req.customer._id }, { sort: { placedAt: -1 }, limit: 100 });
   res.json(orders.map(publicOrder));
 });
 
 router.get('/:id', async (req, res) => {
+  await settleOffers(req.customer._id);
   res.json(publicOrder(await ownOrder(req)));
 });
 
@@ -69,6 +75,10 @@ router.post('/', async (req, res) => {
   const order = await serialize('orders', async () => {
     if (!(await store.findById('customers', customer._id))) throw unauthorized(); // account deleted meanwhile
     if (!customer.name) throw badRequest('Add your name before placing an order.');
+    // Deliveries need a mobile number. Accounts made with an email address give one here; it's kept as
+    // `deliveryPhone`, never as `phone` (the verified sign-in number), so typing a number can't claim a phone account.
+    const phone = customer.phone || normalizePhone(req.body?.deliveryPhone);
+    if (!phone) throw badRequest('Add a 10-digit mobile number for delivery.');
     const address = (customer.addresses || []).find(a => a._id === String(req.body?.addressId || ''));
     if (!address) throw badRequest('Pick a delivery address.');
     const { zones } = await getSettings();
@@ -81,6 +91,7 @@ router.post('/', async (req, res) => {
     }
     if (!bill.items.length) throw badRequest('Your cart is empty.');
     if (bill.couponError) throw badRequest(bill.couponError);
+    if (bill.storeItem?.error) throw badRequest(bill.storeItem.error);
     if (bill.itemTotal < bill.minOrderValue) throw badRequest(`The minimum order is ${money(bill.minOrderValue)}.`);
 
     // Prices may have changed since the customer last saw the bill.
@@ -99,12 +110,14 @@ router.post('/', async (req, res) => {
       _id,
       orderNo,
       placedAt: now.toISOString(),
-      customerId: customer._id, customerName: customer.name, customerPhone: customer.phone,
-      items: bill.items.map(({ isVeg, ...item }) => item),
+      customerId: customer._id, customerName: customer.name, customerPhone: phone,
+      items: bill.items.map(({ isVeg, store: _, ...item }) => item),
       subtotal: bill.subtotal,
       deliveryFee: bill.deliveryFee,
       discount: bill.discount,
       cashback: bill.cashback,
+      // Paid to the wallet by the website once the order is delivered (lib/offers.js), apart from coupon `cashback`.
+      ...(bill.deliveryCashback > 0 && { deliveryCashback: bill.deliveryCashback, deliveryCashbackPaidAt: null }),
       couponCode: bill.coupon?.code ?? null,
       total: bill.total,
       paymentMethod: bill.paymentMethod,
@@ -126,10 +139,11 @@ router.post('/', async (req, res) => {
     });
     if (bill.walletUsed > 0) {
       await store.insert('walletTxns', {
-        customerId: customer._id, customerName: customer.name, customerPhone: customer.phone,
+        customerId: customer._id, customerName: customer.name, customerPhone: phone,
         orderId: _id, type: 'payment', amount: -bill.walletUsed, note: `Order ${orderNo}`, at: now.toISOString(),
       });
     }
+    if (!customer.phone && phone !== customer.deliveryPhone) await store.update('customers', customer._id, { deliveryPhone: phone });
     return saved;
   });
   res.status(201).json(publicOrder(order));

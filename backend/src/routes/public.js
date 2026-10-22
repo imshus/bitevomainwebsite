@@ -7,6 +7,7 @@ import { badRequest, nowIso, text, MIN } from '../lib/http.js';
 import { couponStatus, normalizePhone, clientIp } from '../lib/rules.js';
 import { getSettings } from '../lib/settings.js';
 import { optionalCustomer } from '../auth.js';
+import { emailSignInEnabled } from '../lib/mail.js';
 
 export const router = Router();
 
@@ -15,10 +16,15 @@ router.get('/config', async (req, res) => {
   res.json({
     zones,
     deliveryFee: config.deliveryFee,
-    freeDeliveryAbove: config.freeDeliveryAbove,
+    freeDeliveryOrders: config.freeDeliveryOrders, // delivery is free on each customer's first orders
+    freeDeliveryAbove: null, // dropped (kept so older pages don't break)
     minOrderValue: config.minOrderValue,
+    // "Order more, save more" (0 = off): signup bonus and per-order cashback (wallet coins), the order
+    // total that gets a first order its free Cold Coffee, and what unlocks one ₹1 store item.
+    offers: config.offers,
     otpDevMode: config.otpDevMode,
     googleClientId: config.googleClientId || null, // shows "Continue with Google" when set
+    emailLogin: emailSignInEnabled(), // shows "Sign in with email"
     referral: config.referral.enabled ? { reward: config.referral.reward, ordersNeeded: config.referral.orders } : null,
     // null when no Google Maps key is set: addresses are then typed in by hand.
     maps: config.maps.serverKey

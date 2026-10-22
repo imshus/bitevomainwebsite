@@ -6,6 +6,7 @@ import { useConfig, useMenu } from '../state/menu.js';
 import { money } from '../lib/format.js';
 import { sized } from '../lib/photo.js';
 import Modal from './Modal.jsx';
+import StoreLock from './StoreLock.jsx';
 import { VegMark, Stepper } from './Dish.jsx';
 import { Bag, ChevronRight } from './Icons.jsx';
 
@@ -20,7 +21,6 @@ export function CartDrawer() {
 
   if (!cart.open) return null;
   const close = () => cart.setOpen(false);
-  const toFree = config ? config.freeDeliveryAbove - cart.itemTotal : 0;
 
   return (
     <Modal onClose={close} label="Your cart" variant="drawer" className="cart">
@@ -30,17 +30,14 @@ export function CartDrawer() {
           <div className="empty__icon"><Bag /></div>
           <h3>Your cart is empty</h3>
           <p>Good food is just a few taps away.</p>
-          <Link to="/menu" className="btn btn--red" onClick={close}>Browse the menu</Link>
+          <Link to="/" className="btn btn--red" onClick={close}>Browse the menu</Link>
         </div>
       ) : (
         <>
-          {config && toFree > 0 && (
-            <div className="free-del">
-              <span>Add <b>{money(toFree)}</b> more for free delivery</span>
-              <span className="free-del__bar"><i style={{ width: `${Math.min(100, (cart.itemTotal / config.freeDeliveryAbove) * 100)}%` }} /></span>
-            </div>
+          {config?.freeDeliveryOrders > 0 && (
+            <div className="free-del">Free delivery on your <b>first {config.freeDeliveryOrders} orders</b>, then {money(config.deliveryFee)}</div>
           )}
-          {config && toFree <= 0 && <div className="free-del free-del--done">You’ve unlocked <b>free delivery</b></div>}
+          <StoreLock onPick={close} />
           <ul className="cart__lines">
             {cart.lines.map(l => (
               <li key={l.productId} className="line">
@@ -59,7 +56,7 @@ export function CartDrawer() {
             <button className="btn btn--red btn--block btn--lg" onClick={() => { close(); navigate('/checkout'); }}>
               Checkout · {money(cart.itemTotal)}
             </button>
-            <Link to="/menu" className="cart__more" onClick={close}>+ Add more dishes</Link>
+            <Link to="/" className="cart__more" onClick={close}>+ Add more dishes</Link>
           </div>
         </>
       )}
@@ -78,7 +75,7 @@ export function useBottomBar(shown) {
 }
 
 // Floating "View cart" bar on the home and menu pages.
-const BAR_PAGES = ['/', '/menu'];
+const BAR_PAGES = ['/'];
 
 export function CartBar() {
   const cart = useCart();

@@ -167,7 +167,7 @@ function Program({ data, setData }) {
       {data.referredBy && <p className="refer-joined"><Check /> You joined BiteVo with {data.referredBy.name}’s invite.</p>}
 
       <FinePrint orders={data.ordersNeeded} />
-      <Link to="/account" className="refer-wallet-link">See your wallet balance in <b>My account</b></Link>
+      <Link to="/wallet" className="refer-wallet-link">See your balance and history in your <b>BiteVo wallet</b></Link>
       </div>
     </div>
   );

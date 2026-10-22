@@ -28,7 +28,7 @@ export function InviteRoute() {
   useEffect(() => {
     if (done.current === code) return; // effects run twice in development
     done.current = code;
-    catchInvite(code).finally(() => navigate('/menu', { replace: true }));
+    catchInvite(code).finally(() => navigate('/', { replace: true }));
   }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }

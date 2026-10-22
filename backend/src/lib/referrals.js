@@ -1,10 +1,3 @@
-// Refer & earn. Every customer gets a short code to share. A new customer can use a friend's code
-// before their first order; once they have `ordersNeeded` orders delivered (the admin panel marks
-// orders delivered), the friend who invited them gets `reward` rupees in their BiteVo wallet.
-//
-// Data: customers get `referralCode` (theirs) and `referredBy` (who invited them); each use of a code
-// is a document in "referrals" (pending → rewarded, or void). The reward is a wallet transaction of type
-// "cashback" (so the admin panel's Wallet page lists it as cashback) with `source: 'referral'`.
 import crypto from 'node:crypto';
 import { store } from '../db/index.js';
 import { config } from '../config.js';
@@ -74,7 +67,7 @@ export function applyCode(customerId, raw) {
     const at = nowIso();
     const referral = await store.insert('referrals', {
       referrerId: referrer._id, referrerName: referrer.name,
-      friendId: me._id, friendName: me.name, friendPhone: me.phone,
+      friendId: me._id, friendName: me.name, friendPhone: me.phone || me.deliveryPhone || '',
       code, status: 'pending', ordersDelivered: 0,
       // The promise at the time of joining, so later changes to the settings don't change it.
       ordersNeeded: config.referral.orders, reward: config.referral.reward,
@@ -109,7 +102,7 @@ async function payReward(r) {
     try {
       await store.insert('walletTxns', {
         _id: txnId,
-        customerId: referrer._id, customerName: referrer.name, customerPhone: referrer.phone,
+        customerId: referrer._id, customerName: referrer.name, customerPhone: referrer.phone || referrer.deliveryPhone || '',
         orderId: null, type: 'cashback', source: 'referral', referralId: r._id,
         amount: r.reward,
         note: `Referral: ${shortName(r.friendName)} completed ${r.ordersNeeded} order${r.ordersNeeded > 1 ? 's' : ''}`,

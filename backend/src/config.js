@@ -39,9 +39,18 @@ export const config = {
   clientOrigins: [...new Set([...list(process.env.CLIENT_ORIGIN || 'http://localhost:2002').map(o => o.replace(/\/+$/, '')), ...SITE_ORIGINS])],
   // Prefix for menu photos the admin panel uploaded (stored as /uploads/<file>).
   adminPublicUrl: (process.env.ADMIN_PUBLIC_URL || '').replace(/\/$/, ''),
-  deliveryFee: num(process.env.DELIVERY_FEE, 30),
-  freeDeliveryAbove: num(process.env.FREE_DELIVERY_ABOVE, 499),
+  // Delivery is free on each customer's first FREE_DELIVERY_ORDERS orders (cancelled ones don't count),
+  // then DELIVERY_FEE on every order.
+  deliveryFee: num(process.env.DELIVERY_FEE, 20),
+  freeDeliveryOrders: Math.max(0, num(process.env.FREE_DELIVERY_ORDERS, 3)),
   minOrderValue: num(process.env.MIN_ORDER_VALUE, 99),
+  // The "Order more, save more" offers (see lib/offers.js). 0 switches one off.
+  offers: {
+    signupBonus: num(process.env.SIGNUP_BONUS, 20), // wallet coins for every new account
+    deliveryCashback: num(process.env.DELIVERY_CASHBACK, 20), // wallet coins for every delivered order
+    freeCoffeeFrom: num(process.env.FREE_COFFEE_FROM, 99), // first order of at least this much gets a free Cold Coffee
+    storeUnlockAt: num(process.env.STORE_UNLOCK_AT, 399), // other items needed before one ₹1 store item can be added
+  },
   otpDevMode: process.env.OTP_DEV_MODE !== 'false',
   // Google Maps Platform. The server key is used only here, for place search, place details and
   // turning a map pin into an address. The browser key draws the map, so restrict it to the

@@ -7,6 +7,7 @@ import { badRequest, conflict, notFound, nowIso, text } from '../lib/http.js';
 import { getSettings } from '../lib/settings.js';
 import { deliveryCheck } from '../lib/maps.js';
 import { settleReferrals } from '../lib/referrals.js';
+import { settleOffers } from '../lib/offers.js';
 import { serialize, LIVE_STATUSES } from '../lib/rules.js';
 import { requireCustomer, publicCustomer, clearSessionCookie } from '../auth.js';
 import { walletBalance } from '../pricing.js';
@@ -110,13 +111,16 @@ const TXN_LABELS = {
   cashback: 'Cashback', refund: 'Refund', payment: 'Paid for order',
   admin_credit: 'Added by BiteVo', admin_debit: 'Deducted by BiteVo',
 };
+// Cashback the website pays itself, by `source`.
+const SOURCE_LABELS = { referral: 'Referral cashback', signup: 'Signup bonus', order: 'Order cashback' };
 
 router.get('/wallet', async (req, res) => {
   if (config.referral.enabled) await settleReferrals({ referrerId: req.customer._id }); // pay any referral reward that's due
+  await settleOffers(req.customer._id); // and any order cashback
   const txns = await store.find('walletTxns', { customerId: req.customer._id }, { sort: { at: -1 }, limit: 50 });
   res.json({
     balance: await walletBalance(req.customer._id),
-    transactions: txns.map(t => ({ _id: t._id, type: t.type, label: t.source === 'referral' ? 'Referral cashback' : TXN_LABELS[t.type] || 'Wallet', note: t.note, amount: t.amount, at: t.at })),
+    transactions: txns.map(t => ({ _id: t._id, type: t.type, label: SOURCE_LABELS[t.source] || TXN_LABELS[t.type] || 'Wallet', note: t.note, amount: t.amount, at: t.at })),
   });
 });
 
@@ -146,7 +150,14 @@ router.delete('/', async (req, res) => {
     await store.updateMany('referrals', { referrerId: id, status: 'pending' }, { status: 'void', voidReason: 'The inviter deleted their account' });
     await store.updateMany('referrals', { friendId: id }, { friendName: DELETED_NAME, friendPhone: '' });
     await store.updateMany('referrals', { referrerId: id }, { referrerName: DELETED_NAME });
-    for (const code of await store.find('otpCodes', { phone: customer.phone })) await store.remove('otpCodes', code._id);
+    // So does cashback on orders not delivered yet.
+    await store.updateMany('orders', { customerId: id, deliveryCashback: { $gt: 0 }, deliveryCashbackPaidAt: null }, { deliveryCashback: 0 });
+    if (customer.phone) {
+      for (const code of await store.find('otpCodes', { phone: customer.phone })) await store.remove('otpCodes', code._id);
+    }
+    if (customer.loginEmail) {
+      for (const code of await store.find('emailCodes', { email: customer.loginEmail })) await store.remove('emailCodes', code._id);
+    }
     await store.remove('customers', id);
     console.log(`Customer account deleted (${id}).`);
   });

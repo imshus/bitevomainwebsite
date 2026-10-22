@@ -6,6 +6,7 @@ import MenuHeader from '../components/MenuHeader.jsx';
 import MoodTabs from '../components/MoodTabs.jsx';
 import FilterBar from '../components/FilterBar.jsx';
 import DishCard, { DishTile } from '../components/Dish.jsx';
+import StoreLock from '../components/StoreLock.jsx';
 import { ChevronRight } from '../components/Icons.jsx';
 import { useMenu, useConfig } from '../state/menu.js';
 import { money } from '../lib/format.js';
@@ -47,7 +48,7 @@ export default function Menu() {
   const [filters, setFilters] = useState(NO_FILTERS);
   const [allRecs, setAllRecs] = useState(false);
 
-  // The selected tab lives in the URL (e.g. /menu#drinks) so it can be linked to.
+  // The selected tab lives in the URL (e.g. /#drinks) so it can be linked to.
   const fromHash = decodeURIComponent(hash.slice(1));
   const tab = TAB_KEYS.includes(fromHash) ? fromHash : 'all';
   // Picking a tab while scrolled down the list jumps back to its start (just under the floating tabs).
@@ -160,8 +161,10 @@ export default function Menu() {
                     count={s.preview ? undefined : s.items.length}
                     onSeeAll={s.preview && s.items.length > PREVIEW ? () => choose(s.key) : undefined}
                   />
-                  <div className="dish-grid">
-                    {(s.preview ? s.items.slice(0, PREVIEW) : s.items).map((p, i) => <DishCard key={p._id} product={p} index={i} variant="row" />)}
+                  {s.key === 'store' && <StoreLock />}
+                  {/* On the "All" tab each section is a sideways row with all its dishes; a single tab or search lists them. */}
+                  <div className={s.preview ? 'dish-rail' : 'dish-grid'}>
+                    {s.items.map((p, i) => <DishCard key={p._id} product={p} index={i} variant="row" />)}
                   </div>
                 </div>
               ))}
@@ -180,7 +183,11 @@ export default function Menu() {
             </div>
           )}
 
-          {config && <p className="menu-note">Free delivery on orders of {money(config.freeDeliveryAbove)} or more. Photos are for illustration.</p>}
+          {config && (
+            <p className="menu-note">
+              {config.freeDeliveryOrders > 0 ? `Free delivery on your first ${config.freeDeliveryOrders} orders, then ${money(config.deliveryFee)}.` : `Delivery ${money(config.deliveryFee)}.`} Photos are for illustration.
+            </p>
+          )}
         </div>
       </section>
     </>

@@ -21,10 +21,12 @@ const INDEXES = [
   ['customers', { phone: 1 }],
   ['customers', { googleId: 1 }, { unique: true, partialFilterExpression: { googleId: { $type: 'string' } } }],
   ['customers', { referralCode: 1 }, { unique: true, partialFilterExpression: { referralCode: { $type: 'string' } } }],
+  ['customers', { loginEmail: 1 }, { unique: true, partialFilterExpression: { loginEmail: { $type: 'string' } } }],
   ['referrals', { friendId: 1 }, { unique: true }],
   ['referrals', { referrerId: 1, createdAt: -1 }],
   ['referrals', { status: 1 }],
   ['otpCodes', { phone: 1, createdAt: -1 }],
+  ['emailCodes', { email: 1, createdAt: -1 }],
   ['supportMessages', { createdAt: -1 }],
 ];
 

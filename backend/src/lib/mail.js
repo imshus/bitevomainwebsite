@@ -7,6 +7,8 @@ import { money } from './rules.js';
 
 let transport = null;
 export const mailEnabled = () => Boolean(config.mail.user && config.mail.pass);
+// Sign-in with an email code needs the mailbox, or test mode (OTP_DEV_MODE), which shows the code on screen.
+export const emailSignInEnabled = () => mailEnabled() || config.otpDevMode;
 
 function getTransport() {
   if (!transport) {
@@ -40,7 +42,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const firstName = name => String(name || '').trim().split(/\s+/)[0] || 'there';
 
 // One simple, email-client-safe layout (tables and inline styles) in BiteVo red.
-function layout(title, body, cta) {
+function layout(title, body, cta, footer = 'You’re getting this because you have a BiteVo account. Questions? Just reply to this email.') {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#FFF6F5;font-family:Arial,Helvetica,sans-serif;color:#1A1A1A">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFF6F5;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #F0E1E1">
@@ -50,7 +52,7 @@ function layout(title, body, cta) {
 ${body}
 ${cta ? `<p style="margin:26px 0 6px"><a href="${esc(cta.href)}" style="display:inline-block;background:#B71C1C;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:10px">${esc(cta.label)}</a></p>` : ''}
 </td></tr>
-<tr><td style="padding:16px 28px;background:#FFF6F5;color:#666;font-size:12px;line-height:1.5">You’re getting this because you have a BiteVo account. Questions? Just reply to this email.</td></tr>
+<tr><td style="padding:16px 28px;background:#FFF6F5;color:#666;font-size:12px;line-height:1.5">${esc(footer)}</td></tr>
 </table></td></tr></table></body></html>`;
 }
 const p = text => `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#333">${text}</p>`;
@@ -65,6 +67,19 @@ export function welcomeEmail(customer) {
       + p(config.referral.enabled ? `Share your referral code with friends and earn ${money(config.referral.reward)} in your BiteVo wallet when each of them completes ${config.referral.orders} orders.` : ''),
       { href: `${config.siteUrl}/menu`, label: 'See the menu' }),
     text: `Hi ${firstName(customer.name)}, welcome to BiteVo! Your account is ready. See the menu: ${config.siteUrl}/menu`,
+  };
+}
+
+export function signInCodeEmail(email, code) {
+  return {
+    to: email,
+    subject: `${code} is your BiteVo sign-in code`,
+    html: layout('Your sign-in code',
+      p('Enter this code on BiteVo to sign in. It works for 5 minutes.')
+      + `<p style="margin:6px 0 18px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#B71C1C">${esc(code)}</p>`
+      + p('Never share it: BiteVo will never ask you for this code.'),
+      null, 'You’re getting this because someone asked to sign in to BiteVo with this email. If it wasn’t you, ignore it.'),
+    text: `${code} is your BiteVo sign-in code. It works for 5 minutes. If you didn’t ask for it, ignore this email.`,
   };
 }
 

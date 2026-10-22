@@ -59,7 +59,7 @@ export default function Orders() {
               <div className="empty__icon"><Receipt /></div>
               <h3>No orders yet</h3>
               <p>Your first BiteVo meal is a few taps away.</p>
-              <Link to="/menu" className="btn btn--red btn--lg">Browse the menu</Link>
+              <Link to="/" className="btn btn--red btn--lg">Browse the menu</Link>
             </div>
           ) : (
             <ul className="order-list">

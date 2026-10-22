@@ -9,7 +9,7 @@ export default function SignInPrompt({ text }) {
       <div className="empty__icon"><User /></div>
       <h3>You’re not signed in</h3>
       <p>{text}</p>
-      <button type="button" className="btn btn--red btn--lg" onClick={() => requireLogin()}>Sign in with your phone</button>
+      <button type="button" className="btn btn--red btn--lg" onClick={() => requireLogin()}>Sign in</button>
     </div>
   );
 }

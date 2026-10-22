@@ -12,7 +12,7 @@ export default function NotFound() {
       </PageHero>
       <section className="section">
         <div className="container center" style={{ marginTop: 0 }}>
-          <Link to="/" className="btn btn--red btn--lg">Back to Home</Link>
+          <Link to="/" className="btn btn--red btn--lg">Go to the menu</Link>
         </div>
       </section>
     </>

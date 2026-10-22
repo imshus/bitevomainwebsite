@@ -10,7 +10,7 @@ import AddressForm from '../components/AddressForm.jsx';
 import Modal from '../components/Modal.jsx';
 import { MapPin, User, Wallet, Receipt, ChevronRight, Alert, Gift } from '../components/Icons.jsx';
 import { useConfig } from '../state/menu.js';
-import { money, formatWhen, addressLine, LIVE_STATUSES } from '../lib/format.js';
+import { money, addressLine, LIVE_STATUSES } from '../lib/format.js';
 import usePageTitle from '../lib/usePageTitle.js';
 
 function Profile() {
@@ -36,8 +36,17 @@ function Profile() {
       <div className="panel__head"><span className="panel__icon"><User /></span><h2>Profile</h2></div>
       <label className="field"><span>Name</span><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} maxLength={60} autoComplete="name" required /></label>
       <label className="field"><span>Email <i>(optional, for receipts and offers)</i></span><input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} maxLength={120} autoComplete="email" /></label>
-      <label className="field"><span>Mobile number</span><input value={customer.phone} disabled /></label>
+      {customer.phone ? (
+        <label className="field"><span>Mobile number</span><input value={customer.phone} disabled /></label>
+      ) : (
+        <label className="field">
+          <span>Mobile number <i>(for delivery)</i></span>
+          <input value={customer.deliveryPhone} placeholder="Not added yet, we’ll ask at checkout" disabled />
+          {customer.deliveryPhone && <small className="muted small">You can change it when you place your next order.</small>}
+        </label>
+      )}
       {customer.google && <p className="muted small">Google account linked{typeof customer.google === 'string' ? ` (${customer.google})` : ''}. You can sign in with it.</p>}
+      {customer.emailLogin && <p className="muted small">You can also sign in with a code sent to <b>{customer.emailLogin}</b>.</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="btn btn--red" disabled={busy || !changed}>{busy ? 'Saving…' : 'Save changes'}</button>
     </form>
@@ -78,33 +87,17 @@ function Addresses() {
   );
 }
 
-function WalletPanel() {
-  const [wallet, setWallet] = useState(null);
-  const [error, setError] = useState('');
-  useEffect(() => { api.wallet().then(setWallet, err => setError(err.message)); }, []);
+// The wallet has its own page; this shows the balance on the way there.
+function WalletLink() {
+  const [balance, setBalance] = useState(null);
+  useEffect(() => { api.wallet().then(w => setBalance(w.balance), () => {}); }, []);
 
   return (
-    <div className="panel">
-      <div className="panel__head"><span className="panel__icon"><Wallet /></span><h2>BiteVo wallet</h2></div>
-      {error && <p className="form-error">{error}</p>}
-      {!wallet && !error && <Loading />}
-      {wallet && (
-        <>
-          <div className="wallet-balance"><span>Balance</span><b>{money(wallet.balance)}</b></div>
-          <p className="muted small">Cashback, referral rewards and refunds land here. Use it at checkout.</p>
-          {wallet.transactions.length > 0 && (
-            <ul className="txns">
-              {wallet.transactions.map(t => (
-                <li key={t._id}>
-                  <span><b>{t.label}</b><small>{t.note} · {formatWhen(t.at)}</small></span>
-                  <span className={t.amount > 0 ? 'plus' : 'minus'}>{t.amount > 0 ? '+' : '−'}{money(Math.abs(t.amount))}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-    </div>
+    <Link to="/wallet" className="panel panel--link">
+      <span className="panel__icon"><Wallet /></span>
+      <span><b>BiteVo wallet</b><small>{balance === null ? 'Balance and history' : `Balance ${money(balance)} · cashback, rewards and refunds`}</small></span>
+      <ChevronRight />
+    </Link>
   );
 }
 
@@ -210,7 +203,7 @@ export default function Account() {
   return (
     <>
       <PageHero compact title={customer?.name ? <>Hi, <em>{customer.name.split(' ')[0]}</em></> : <>My <em>account</em></>}>
-        {customer ? customer.phone : 'Your profile, addresses and wallet.'}
+        {customer ? customer.phone || customer.email : 'Your profile, addresses and wallet.'}
       </PageHero>
       <section className="section section--tight">
         <div className="container narrow">
@@ -221,6 +214,7 @@ export default function Account() {
                 <span><b>My orders</b><small>Track live orders and order again</small></span>
                 <ChevronRight />
               </Link>
+              <WalletLink />
               {config?.referral && (
                 <Link to="/refer" className="panel panel--link panel--refer">
                   <span className="panel__icon"><Gift /></span>
@@ -228,7 +222,6 @@ export default function Account() {
                   <ChevronRight />
                 </Link>
               )}
-              <WalletPanel />
               <Profile />
               <Addresses />
               <div className="panel panel--danger">

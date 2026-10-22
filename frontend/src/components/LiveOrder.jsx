@@ -6,7 +6,7 @@ import { useAuth } from '../state/auth.jsx';
 import { ORDER_STATUS, LIVE_STATUSES } from '../lib/format.js';
 import { ChefHat, Bike, Receipt, ChevronRight } from './Icons.jsx';
 
-const PAGES = ['/', '/menu'];
+const PAGES = ['/'];
 const ICONS = { placed: <Receipt />, preparing: <ChefHat />, out_for_delivery: <Bike /> };
 
 export default function LiveOrder() {

@@ -47,7 +47,7 @@ export async function startSession(req, res, customer) {
   const token = randomToken();
   const at = nowIso();
   await store.insert('sessions', {
-    userId: customer._id, userName: customer.name || 'New customer', role: 'customer', identifier: customer.phone,
+    userId: customer._id, userName: customer.name || 'New customer', role: 'customer', identifier: customer.phone || customer.email,
     platform: 'web', device: `${deviceName(req.get('user-agent'))} · bitevo.in`, ip: clientIp(req),
     loginAt: at, lastActiveAt: at, revokedAt: null,
     expiresAt: new Date(Date.now() + config.sessionDays * DAY).toISOString(),
@@ -71,9 +71,11 @@ export function clearSessionCookie(res) {
 export const publicCustomer = c => ({
   _id: c._id,
   name: c.name || '',
-  phone: c.phone,
+  phone: c.phone || '', // the verified sign-in number; empty for accounts made with an email address
+  deliveryPhone: c.deliveryPhone || '', // the number those accounts gave at checkout
   email: c.email || '',
   addresses: c.addresses || [],
   createdAt: c.createdAt,
   google: c.googleId ? c.googleEmail || true : null, // the linked Google account's email, if any
+  emailLogin: c.loginEmail || null, // the verified email address it can sign in with, if any
 });

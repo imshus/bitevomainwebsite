@@ -53,6 +53,8 @@ export const api = {
   sendOtp: phone => post('/auth/otp', { phone }),
   verifyOtp: (phone, code, googleTicket) => post('/auth/verify', { phone, code, ...(googleTicket && { googleTicket }) }, { quiet401: true }),
   googleLogin: credential => post('/auth/google', { credential }, { quiet401: true }),
+  sendEmailCode: email => post('/auth/email', { email }),
+  verifyEmailCode: (email, code) => post('/auth/email/verify', { email, code }, { quiet401: true }),
   logout: () => post('/auth/logout'),
 
   me: () => get('/me', { quiet401: true }),

@@ -200,6 +200,8 @@ button.btn { font-family: inherit; cursor: pointer; }
 .login__logo { width: 52px; height: 52px; border-radius: 14px; margin-bottom: 14px; }
 .login__lead { color: var(--muted); font-size: 14.5px; margin: 0 0 20px; }
 .login__fine { font-size: 13px; color: var(--muted); text-align: center; margin: 14px 0 0; }
+.login__switch { margin-top: 10px; gap: 8px; }
+.login__switch svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .login__fine a { color: var(--red); font-weight: 500; }
 .dev-code {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
@@ -406,6 +408,25 @@ button.btn { font-family: inherit; cursor: pointer; }
 .panel--link > svg { width: 20px; height: 20px; stroke: var(--muted); stroke-width: 2; fill: none; }
 .wallet-balance { display: flex; align-items: baseline; justify-content: space-between; background: linear-gradient(135deg, var(--red), var(--red-dark)); color: var(--white); border-radius: 16px; padding: 18px 22px; }
 .wallet-balance b { font-size: 30px; font-weight: 800; }
+/* Checkout: delivery number for accounts made with an email address */
+.delivery-phone { margin: 16px 0 0; }
+.delivery-phone small { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+
+/* Wallet page */
+.wallet-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  background: linear-gradient(135deg, var(--red), var(--red-dark)); color: var(--white);
+  border-radius: var(--radius); padding: 24px 26px; margin-bottom: 18px; box-shadow: var(--shadow);
+}
+.wallet-card__label { display: block; font-size: 12.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+.wallet-card__amount { display: block; font-size: 40px; font-weight: 800; line-height: 1.15; margin: 4px 0 6px; }
+.wallet-card p { margin: 0; font-size: 14px; opacity: .9; }
+.wallet-card .btn { background: var(--white); color: var(--red); border-color: var(--white); }
+.earn-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+.earn-list li { display: flex; align-items: flex-start; gap: 12px; }
+.earn-list li > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.earn-list small { color: var(--muted); font-size: 13.5px; }
+.earn-list a { color: var(--red); font-weight: 600; }
 .txns { list-style: none; padding: 0; margin: 8px 0 0; }
 .txns li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
 .txns li:last-child { border-bottom: 0; }

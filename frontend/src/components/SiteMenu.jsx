@@ -28,9 +28,9 @@ export default function SiteMenu({ onClose }) {
         </button>
       </div>
       <nav className="site-menu__links" aria-label="Main">
-        <NavLink to="/" end className={navClass} onClick={onClose}>Home</NavLink>
-        <NavLink to="/menu" className={navClass} onClick={onClose}>Menu</NavLink>
+        <NavLink to="/" end className={navClass} onClick={onClose}>Menu</NavLink>
         {customer && <NavLink to="/orders" className={navClass} onClick={onClose}>My Orders</NavLink>}
+        {customer && <NavLink to="/wallet" className={navClass} onClick={onClose}>Wallet</NavLink>}
         <NavLink to="/refer" className={navClass} onClick={onClose}>Refer &amp; Earn</NavLink>
         <NavLink to="/about" className={navClass} onClick={onClose}>About</NavLink>
         <NavLink to="/support" className={navClass} onClick={onClose}>Support</NavLink>

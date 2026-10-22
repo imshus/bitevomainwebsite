@@ -24,7 +24,7 @@ export function AppCta({ title, text, spaced = false }) {
             <p>{text}</p>
           </div>
           <div className="cta__buttons">
-            <Link to="/menu" className="store store--order">
+            <Link to="/" className="store store--order">
               <span><small>Order right here on</small>bitevo.in</span>
             </Link>
             <a href="#" className="store">
