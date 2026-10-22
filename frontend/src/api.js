@@ -44,9 +44,18 @@ const post = (path, body, opts) => request('POST', path, body ?? {}, opts);
 const patch = (path, body) => request('PATCH', path, body);
 const del = path => request('DELETE', path);
 
+// The page starts fetching the menu and site settings before this code has even arrived (see earlyStart in
+// vite.config.js). The first ask for each uses that answer; if it failed, it asks again the usual way.
+function early(path) {
+  const started = window.__bitevoEarly?.[path];
+  if (!started) return get(path);
+  delete window.__bitevoEarly[path];
+  return started.catch(() => get(path));
+}
+
 export const api = {
-  config: () => get('/config'),
-  menu: () => get('/menu'),
+  config: () => early('/config'),
+  menu: () => early('/menu'),
   offers: () => get('/offers', { quiet401: true }),
   support: message => post('/support', message),
 

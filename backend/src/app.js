@@ -39,8 +39,11 @@ function siteRoutes() {
   // year; other files (logo, icons, banners) for a day; the page itself is always checked, so a new build shows up.
   site.use(express.static(SITE_DIR, {
     index: false,
-    setHeaders: (res, file) => res.setHeader('Cache-Control', /-[\w-]{8,}\.(js|css)$/.test(file) ? 'public, max-age=31536000, immutable' : 'public, max-age=86400'),
+    setHeaders: (res, file) => res.setHeader('Cache-Control', /-[\w-]{8,}\.(js|css|woff2?)$/.test(file) ? 'public, max-age=31536000, immutable' : 'public, max-age=86400'),
   }));
+  // A built file that isn't here (e.g. a page left open from before the last update asks for an old one) is a
+  // plain 404, not the page: the site then reloads itself to pick up the new files.
+  site.get(/^\/assets\/.+\.(js|css|woff2?|map)$/, (req, res) => res.status(404).type('text/plain').send('Not found'));
   // Every other page address belongs to the website's router. /uploads/ (admin photos) is not a page.
   site.get(/^(?!\/uploads\/)/, (req, res) => res.setHeader('Cache-Control', 'no-cache').sendFile(path.join(SITE_DIR, 'index.html')));
   return site;

@@ -10,8 +10,10 @@
 :focus-visible { outline: 3px solid rgba(183, 28, 28, .35); outline-offset: 2px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* Each page fades in. (Opacity only: a moving page would knock fixed bars out of place.) */
+/* Each page fades in. (Opacity only: a moving page would knock fixed bars out of place.) The page a visitor
+   lands on shows at once, so the first screen isn't held back. */
 .page { animation: pageFade .35s ease both; }
+.page--landing { animation: none; }
 @keyframes pageFade { from { opacity: 0; } to { opacity: 1; } }
 
 /* Things rise in one after another (--i is set per card) */

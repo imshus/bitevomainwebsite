@@ -6,14 +6,20 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../state/auth.jsx';
 import { useDeliveryLocation, describeLocation, setDeliveryLocation, locationFromAddress } from '../state/location.js';
 import { prefersReducedMotion } from '../lib/motion.js';
-import LocationPicker from './LocationPicker.jsx';
-import AddressForm from './AddressForm.jsx';
+import { lazyLoad, LazyPart, whenIdle, CANT_OPEN } from '../lib/lazy.js';
+import { useToast } from '../state/toast.jsx';
 import SiteMenu from './SiteMenu.jsx';
 import { Search, Close } from './Icons.jsx';
 
 // The usual delivery time shown in the badge (frontend/.env).
 const DELIVERY_MINS = Number(import.meta.env.VITE_DELIVERY_MINS) || 30;
 const FALLBACK_HINTS = ['Biryani', 'Fries', 'Burger', 'Cold Coffee', 'Paneer Tikka', 'Wraps'];
+
+// The location and address sheets are their own files: the picker is fetched once the menu has settled
+// (or as soon as the address button is pointed at), the address form when the picker opens.
+const LocationPicker = lazyLoad(() => import('./LocationPicker.jsx'));
+const AddressForm = lazyLoad(() => import('./AddressForm.jsx'));
+const warmPicker = () => LocationPicker.preload().catch(() => {});
 
 const Caret = () => <svg className="where__caret" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1h10L6 7Z" /></svg>;
 const Mic = () => <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="6" height="12" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>;
@@ -72,6 +78,9 @@ export default function MenuHeader({ query, setQuery, vegOnly, setVegOnly, dishN
   const [picking, setPicking] = useState(false);
   const [adding, setAdding] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const toast = useToast();
+  useEffect(() => { whenIdle(warmPicker); }, []);
+  useEffect(() => { if (picking) AddressForm.preload().catch(() => {}); }, [picking]);
   const where = describeLocation(location, customer?.addresses);
   const saved = where?.addressId && customer?.addresses?.find(a => a._id === where.addressId);
   const tag = saved?.label || 'Deliver to';
@@ -87,7 +96,7 @@ export default function MenuHeader({ query, setQuery, vegOnly, setVegOnly, dishN
         <span className="eta" title={`Usually delivered in about ${DELIVERY_MINS} minutes`}>
           <b>{DELIVERY_MINS}</b><small>mins</small>
         </span>
-        <button type="button" className="where" onClick={() => setPicking(true)} aria-label={where ? `Delivering to ${where.subtitle || where.title}. Change location` : 'Set your delivery location'}>
+        <button type="button" className="where" onClick={() => setPicking(true)} onPointerEnter={warmPicker} onFocus={warmPicker} aria-label={where ? `Delivering to ${where.subtitle || where.title}. Change location` : 'Set your delivery location'}>
           {where ? (
             <><span className="where__text"><b>{tag} - </b>{where.subtitle || where.title}</span><Caret /></>
           ) : (
@@ -133,9 +142,11 @@ export default function MenuHeader({ query, setQuery, vegOnly, setVegOnly, dishN
         </button>
       </div>
 
-      {picking && <LocationPicker onClose={() => setPicking(false)} onAddAddress={() => { setPicking(false); setAdding(true); }} />}
+      <LazyPart onError={() => { setPicking(false); setAdding(false); toast(CANT_OPEN, 'error'); }}>
+        {picking && <LocationPicker onClose={() => setPicking(false)} onAddAddress={() => { setPicking(false); setAdding(true); }} />}
+        {adding && <AddressForm onClose={() => setAdding(false)} onSaved={a => setDeliveryLocation(locationFromAddress(a))} />}
+      </LazyPart>
       {menuOpen && <SiteMenu onClose={() => setMenuOpen(false)} />}
-      {adding && <AddressForm onClose={() => setAdding(false)} onSaved={a => setDeliveryLocation(locationFromAddress(a))} />}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { store } from '../db/index.js';
 import { config } from '../config.js';
-import { badRequest, nowIso, text, MIN } from '../lib/http.js';
+import { badRequest, nowIso, text, keptFor, MIN } from '../lib/http.js';
 import { couponStatus, normalizePhone, clientIp } from '../lib/rules.js';
 import { getSettings } from '../lib/settings.js';
 import { optionalCustomer } from '../auth.js';
@@ -12,8 +12,14 @@ import { emailSignInEnabled } from '../lib/mail.js';
 
 export const router = Router();
 
+// Every visit asks for the menu and settings, but they only change when the team edits them in the admin
+// panel. Answers are kept for a few seconds, so a busy moment costs one database read instead of one per
+// visitor, and edits show up on the site within that time. (Orders are always priced straight from the database.)
+const FRESH_MS = 10 * 1000;
+const currentSettings = keptFor(FRESH_MS, getSettings);
+
 router.get('/config', async (req, res) => {
-  const { zones } = await getSettings();
+  const { zones } = await currentSettings();
   res.json({
     zones,
     deliveryFee: config.deliveryFee,
@@ -71,7 +77,7 @@ const publicProduct = p => ({
 
 // The whole menu: categories in the panel's order (empty ones left out), newest dishes first and
 // sold-out dishes last within each category.
-router.get('/menu', async (req, res) => {
+const currentMenu = keptFor(FRESH_MS, async () => {
   const [categories, products] = await Promise.all([
     store.find('categories', {}, { sort: { order: 1 } }),
     store.find('products', {}, { sort: { createdAt: -1 } }),
@@ -81,22 +87,26 @@ router.get('/menu', async (req, res) => {
   const sorted = products
     .filter(p => rank.has(p.category))
     .sort((a, b) => rank.get(a.category) - rank.get(b.category) || Number(b.isAvailable) - Number(a.isAvailable));
-  res.set('Cache-Control', 'no-cache');
-  res.json({
+  return {
     categories: categories.filter(c => used.has(c.key)).map(c => ({ key: c.key, label: c.label, image: imageUrl(c.image) })),
     products: sorted.map(publicProduct),
-  });
+  };
+});
+
+router.get('/menu', async (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.json(await currentMenu());
 });
 
 // Offers a customer can use right now. Signed-in customers don't see first-order offers once they've ordered.
 router.get('/offers', optionalCustomer, async (req, res) => {
-  const coupons = await store.find('coupons', { isActive: true });
-  const live = [];
-  for (const c of coupons) {
-    const usedCount = c.usageLimit ? await store.count('orders', { couponCode: c.code, status: { $ne: 'cancelled' } }) : 0;
-    if (couponStatus({ ...c, usedCount }) === 'active') live.push(c);
-  }
-  const ordered = req.customer && (await store.count('orders', { customerId: req.customer._id, status: { $ne: 'cancelled' } })) > 0;
+  // The coupons' usage counts and the customer's own order count are looked up together, not one by one.
+  const [coupons, ordered] = await Promise.all([
+    store.find('coupons', { isActive: true }),
+    req.customer ? store.count('orders', { customerId: req.customer._id, status: { $ne: 'cancelled' } }).then(n => n > 0) : false,
+  ]);
+  const usedCounts = await Promise.all(coupons.map(c => (c.usageLimit ? store.count('orders', { couponCode: c.code, status: { $ne: 'cancelled' } }) : 0)));
+  const live = coupons.filter((c, i) => couponStatus({ ...c, usedCount: usedCounts[i] }) === 'active');
   res.json(live
     .filter(c => !(ordered && c.firstOrderOnly))
     .sort((a, b) => a.minOrderValue - b.minOrderValue)

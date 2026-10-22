@@ -5,6 +5,7 @@ import { useAuth } from '../state/auth.jsx';
 import { useCart } from '../state/cart.jsx';
 import Modal from './Modal.jsx';
 import { Bag, User } from './Icons.jsx';
+import Logo from './Logo.jsx';
 
 export default function SiteMenu({ onClose }) {
   const { customer, requireLogin } = useAuth();
@@ -15,7 +16,7 @@ export default function SiteMenu({ onClose }) {
   return (
     <Modal onClose={onClose} label="Site menu" variant="drawer" className="site-menu">
       <Link to="/" className="site-menu__logo" onClick={onClose} aria-label="BiteVo home">
-        <img src="/assets/logo-480.png" alt="BiteVo — Good Food, Better Mood" width="480" height="175" />
+        <Logo width={126} />
       </Link>
       <div className="site-menu__actions">
         {customer ? (

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Phone, Mail } from './Icons.jsx';
+import Logo from './Logo.jsx';
 
 export const PHONE = '+91 93193 46656';
 export const PHONE_HREF = 'tel:+919319346656';
@@ -29,7 +30,7 @@ export default function Footer() {
       <div className="container footer__inner">
         <div className="footer__brand">
           <Link to="/" className="footer__logo" aria-label="BiteVo menu">
-            <img src="/assets/logo-480.png" alt="BiteVo — Good Food, Better Mood" width="480" height="175" />
+            <Logo width={140} lazy />
           </Link>
           <p>Fresh, chef-made food, cooked when you order and delivered hot to your door.</p>
           <div className="footer__contact">

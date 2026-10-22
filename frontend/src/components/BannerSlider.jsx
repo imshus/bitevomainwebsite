@@ -5,7 +5,9 @@ import { prefersReducedMotion } from '../lib/motion.js';
 // Offer banners at the top of the menu. Visitors can swipe or scroll sideways (scroll-snap lines each
 // banner up), or use the arrows and dots. It moves on by itself every few seconds, pausing while the
 // pointer or keyboard focus is on it, and stays still for visitors who ask for reduced motion.
-// Images live in public/assets/banners: a 1600×600 JPG plus 800 and 1600 wide WebP copies.
+// Images live in public/assets/banners: a 1600×600 JPG plus 800, 1200 and 1600 wide WebP copies. The first banner is
+// the biggest thing on the menu's first screen, so the page asks for it straight away (FIRST_BANNER in
+// vite.config.js) and ahead of other images; the rest wait until they're nearly in view.
 const BANNERS = [
   {
     file: 'offer-first-order',
@@ -62,10 +64,13 @@ export default function BannerSlider() {
                 <picture>
                   <source
                     type="image/webp"
-                    srcSet={`/assets/banners/${b.file}-800.webp 800w, /assets/banners/${b.file}-1600.webp 1600w`}
+                    srcSet={`/assets/banners/${b.file}-800.webp 800w, /assets/banners/${b.file}-1200.webp 1200w, /assets/banners/${b.file}-1600.webp 1600w`}
                     sizes="(max-width: 1172px) calc(100vw - 32px), 1140px"
                   />
-                  <img src={`/assets/banners/${b.file}.jpg`} alt={b.alt} width="1600" height="600" draggable="false" />
+                  <img
+                    src={`/assets/banners/${b.file}.jpg`} alt={b.alt} width="1600" height="600" draggable="false"
+                    {...(i === 0 ? { fetchpriority: 'high' } : { loading: 'lazy', decoding: 'async' })}
+                  />
                 </picture>
               </div>
             ))}

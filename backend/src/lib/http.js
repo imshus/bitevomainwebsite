@@ -16,6 +16,20 @@ export const conflict = message => new HttpError(409, message);
 export const tooMany = message => new HttpError(429, message);
 
 export const nowIso = () => new Date().toISOString();
+
+// Wraps a loader whose answer may be a few seconds old: it's kept for `ms`, and visitors who ask at the same
+// moment share one load. A failed load isn't kept.
+export function keptFor(ms, load) {
+  let kept = null;
+  let pending = null;
+  return () => {
+    if (kept && Date.now() - kept.at < ms) return Promise.resolve(kept.value);
+    pending ||= load()
+      .then(value => { kept = { value, at: Date.now() }; return value; })
+      .finally(() => { pending = null; });
+    return pending;
+  };
+}
 export const MIN = 60000;
 export const DAY = 86400000;
 

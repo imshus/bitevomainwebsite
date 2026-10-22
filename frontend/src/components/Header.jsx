@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../state/auth.jsx';
 import { useCart } from '../state/cart.jsx';
 import { Bag, User } from './Icons.jsx';
+import Logo from './Logo.jsx';
 
 export default function Header() {
   const { pathname } = useLocation();
@@ -41,10 +42,7 @@ export default function Header() {
     <header ref={header} className={`nav${scrolled ? ' is-scrolled' : ''}`} id="top">
       <div className="container nav__inner">
         <Link to="/" className="nav__logo" aria-label="BiteVo home">
-          <picture>
-            <source srcSet="/assets/logo-480.webp" type="image/webp" />
-            <img src="/assets/logo-480.png" alt="BiteVo — Good Food, Better Mood" width="480" height="175" />
-          </picture>
+          <Logo width={138} lazy />
         </Link>
         <nav className={`nav__links${open ? ' is-open' : ''}`} id="navLinks" aria-label="Main">
           <NavLink to="/" end className={navClass}>Menu</NavLink>
