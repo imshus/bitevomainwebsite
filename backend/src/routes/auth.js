@@ -56,7 +56,9 @@ const logAttempt = (req, identifier, customer, success, reason) => store.insert(
 });
 
 // A new 6-digit code for a phone number ('otpCodes', 'phone') or an email address ('emailCodes', 'email').
-async function issueCode(collection, field, to) {
+// Creates a code, hands it to `deliver` (SMS or email) and returns it. If delivery fails, the code is
+// thrown away again, so it doesn't hold up a retry or count towards the hourly limit.
+async function issueCode(collection, field, to, deliver) {
   const since = new Date(Date.now() - 60 * MIN).toISOString();
   const recent = await store.find(collection, { [field]: to, createdAt: { $gte: since } }, { sort: { createdAt: -1 } });
   if (recent[0] && Date.now() - Date.parse(recent[0].createdAt) < RESEND_AFTER_MS) {
@@ -66,10 +68,16 @@ async function issueCode(collection, field, to) {
     throw tooMany(`Too many codes for this ${field === 'phone' ? 'number' : 'email address'}. Please try again in an hour.`);
   }
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-  await store.insert(collection, {
+  const saved = await store.insert(collection, {
     [field]: to, codeHash: codeHash(to, code), attempts: 0, usedAt: null,
     createdAt: nowIso(), expiresAt: new Date(Date.now() + CODE_TTL_MS).toISOString(),
   });
+  try {
+    await deliver(code);
+  } catch (err) {
+    await store.remove(collection, saved._id).catch(() => {});
+    throw err;
+  }
   return code;
 }
 
@@ -88,8 +96,7 @@ async function useCode(collection, field, to, rawCode, fail, checkWhere) {
 
 router.post('/otp', sendLimiter, async (req, res) => {
   const phone = requirePhone(req.body);
-  const code = await issueCode('otpCodes', 'phone', phone);
-  await sendOtpSms(phone, code);
+  const code = await issueCode('otpCodes', 'phone', phone, c => sendOtpSms(phone, c));
   const existing = await store.findOne('customers', { phone });
   res.json({
     phone,
@@ -157,12 +164,13 @@ router.post('/google', verifyLimiter, async (req, res) => {
 router.post('/email', sendLimiter, async (req, res) => {
   if (!emailSignInEnabled()) throw notFound('Email sign-in isn’t set up.');
   const email = requireEmail(req.body);
-  const code = await issueCode('emailCodes', 'email', email);
   const onScreen = config.otpDevMode && !mailEnabled();
-  if (onScreen) console.log(`[dev] Sign-in code for ${email}: ${code}`);
-  else if (!(await sendMail(signInCodeEmail(email, code)))) {
-    throw new HttpError(503, 'We couldn’t send the email right now. Please try again, or use your mobile number.');
-  }
+  const code = await issueCode('emailCodes', 'email', email, async c => {
+    if (onScreen) console.log(`[dev] Sign-in code for ${email}: ${c}`);
+    else if (!(await sendMail(signInCodeEmail(email, c)))) {
+      throw new HttpError(503, 'We couldn’t send the email right now. Please try again, or use your mobile number.');
+    }
+  });
   res.json({ email, resendAfterSecs: RESEND_AFTER_MS / 1000, ...(onScreen ? { devCode: code } : {}) });
 });
 
