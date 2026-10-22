@@ -4,7 +4,7 @@ import Footer from './components/Footer.jsx';
 import Loader from './components/Loader.jsx';
 import ScrollManager from './components/ScrollManager.jsx';
 import LiveOrder from './components/LiveOrder.jsx';
-import { CartDrawer, CartBar } from './components/CartDrawer.jsx';
+import { CartBar } from './components/CartDrawer.jsx';
 import InviteCatcher, { InviteRoute } from './components/InviteCatcher.jsx';
 import Menu from './pages/Menu.jsx';
 import Checkout from './pages/Checkout.jsx';
@@ -59,7 +59,6 @@ export default function App() {
         </div>
       </main>
       <Footer />
-      <CartDrawer />
       <CartBar />
     </>
   );

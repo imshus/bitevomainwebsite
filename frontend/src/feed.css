@@ -134,9 +134,9 @@
 /* The cart bar: photo, item count and savings, then a white "View Cart" pill */
 .cart-bar {
   width: min(640px, calc(100% - 24px)); justify-content: flex-start; gap: 14px; padding: 9px 10px;
-  background: #0E7A37; border-radius: 16px; box-shadow: 0 14px 32px rgba(8, 70, 28, .38);
+  background: linear-gradient(180deg, #C62828 0%, var(--red) 100%); border-radius: 16px; box-shadow: 0 14px 32px rgba(120, 14, 14, .38);
 }
-.cart-bar:hover { background: #0C6E31; }
+.cart-bar:hover { background: linear-gradient(180deg, #B71C1C 0%, #9A1515 100%); }
 .cart-bar__thumb {
   width: 66px; height: 50px; flex: none; border-radius: 10px; overflow: hidden; display: grid; place-items: center;
   background: rgba(255, 255, 255, .16);
@@ -150,7 +150,7 @@
 .cart-bar__count b { font-weight: 700; }
 .cart-bar__saved { font-size: 13px; opacity: .92; }
 .cart-bar__go {
-  flex: none; padding: 11px 16px 11px 22px; border-radius: 999px; background: var(--white); color: #0E7A37;
+  flex: none; padding: 11px 16px 11px 22px; border-radius: 999px; background: var(--white); color: var(--red);
   font-size: 16px; font-weight: 700; gap: 4px;
 }
 .cart-bar .cart-bar__go svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }

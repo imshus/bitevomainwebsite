@@ -23,9 +23,9 @@ export default function SiteMenu({ onClose }) {
         ) : (
           <button type="button" className="site-menu__action" onClick={() => { onClose(); requireLogin(); }}><User />Sign in</button>
         )}
-        <button type="button" className="site-menu__action" onClick={() => { onClose(); cart.setOpen(true); }}>
+        <Link to="/checkout" className="site-menu__action" onClick={onClose}>
           <Bag />Cart{cart.count > 0 && <span className="site-menu__count">{cart.count}</span>}
-        </button>
+        </Link>
       </div>
       <nav className="site-menu__links" aria-label="Main">
         <NavLink to="/" end className={navClass} onClick={onClose}>Menu</NavLink>

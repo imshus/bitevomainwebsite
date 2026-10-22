@@ -1,6 +1,7 @@
 // Menu building blocks: the veg/non-veg mark, the Add button / quantity stepper, the dish card and
 // the dish details sheet.
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useCart } from '../state/cart.jsx';
 import { money } from '../lib/format.js';
 import { srcSet, sized } from '../lib/photo.js';
@@ -88,7 +89,7 @@ function DishSheet({ product, onClose }) {
         {product.prepTimeMins && <p className="dish-sheet__time"><Clock /> Freshly made in about {product.prepTimeMins} min</p>}
         <div className="dish-sheet__cta">
           <AddButton product={product} wide />
-          {qty > 0 && <button type="button" className="btn btn--red" onClick={() => { onClose(); cart.setOpen(true); }}>View cart · {money(cart.itemTotal)}</button>}
+          {qty > 0 && <Link to="/checkout" className="btn btn--red" onClick={onClose}>View cart · {money(cart.itemTotal)}</Link>}
         </div>
       </div>
     </Modal>

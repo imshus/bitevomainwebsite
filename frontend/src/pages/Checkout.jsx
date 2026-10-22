@@ -12,6 +12,7 @@ import { useDeliveryLocation, setDeliveryLocation, locationFromAddress } from '.
 import { PageHero } from '../components/Sections.jsx';
 import { VegMark, Stepper } from '../components/Dish.jsx';
 import AddressForm from '../components/AddressForm.jsx';
+import StoreLock from '../components/StoreLock.jsx';
 import { Bag, MapPin, Tag, Wallet, Close, Sparkle, Navigation, ChevronDown, Receipt } from '../components/Icons.jsx';
 import Modal from '../components/Modal.jsx';
 import Confetti from '../components/Confetti.jsx';
@@ -315,6 +316,7 @@ export default function Checkout() {
               </li>
             ))}
           </ul>
+          <StoreLock onPick={() => {}} />
           <div className="co-chips">
             <Link to="/" className="co-chip"><Plus />Add items</Link>
             <button type="button" className={`co-chip${noteOpen || note ? ' is-on' : ''}`} onClick={() => setNoteOpen(o => !o)} aria-expanded={noteOpen}><Pencil />Cooking requests</button>

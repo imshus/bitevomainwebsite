@@ -64,10 +64,10 @@ export default function Header() {
               <User /><span>Sign in</span>
             </button>
           ))}
-          <button type="button" className="nav__icon nav__cart" onClick={() => cart.setOpen(true)} aria-label={`Cart, ${cart.count} item${cart.count === 1 ? '' : 's'}`}>
+          <Link to="/checkout" className="nav__icon nav__cart" aria-label={`Cart, ${cart.count} item${cart.count === 1 ? '' : 's'}`}>
             <Bag />
             {cart.count > 0 && <span className="nav__badge" key={cart.count}>{cart.count}</span>}
-          </button>
+          </Link>
           <button
             className="nav__toggle"
             aria-label={open ? 'Close menu' : 'Open menu'}
