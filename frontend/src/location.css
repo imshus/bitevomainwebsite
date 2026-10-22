@@ -195,8 +195,7 @@
   .pin-card { padding: 16px 18px 18px; }
 }
 
-/* "Har Mood Ka Perfect Bite": the headline artwork and the five tabs. Sizes follow the design, which
-   is 1917 px wide (so 1cqw = 19.17 design px); phones get minimum sizes so the text stays readable. */
+/* "Har Mood Ka Perfect Bite": the headline artwork, then the white bar with the five menu tabs. */
 .mood { position: relative; width: min(100%, 1440px); margin: 6px auto 0; container-type: inline-size; }
 .mood__art { display: block; }
 .mood__art img {
@@ -212,41 +211,44 @@
     mask-composite: intersect;
   }
 }
+/* The category bar: white, with rounded top corners, joining the red header to the menu below */
+.mood__bar {
+  position: relative; z-index: 1; margin-top: -10px; background: var(--white);
+  border-radius: 24px 24px 0 0; box-shadow: 0 -8px 20px rgba(80, 0, 0, .14);
+}
 .mood__tabs {
-  --ha: max(80px, 13.36cqw); /* the selected tab's height: 256 of 1917 in the design */
-  position: relative; display: flex; height: var(--ha);
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px;
+  width: min(760px, 100%); margin: 0 auto; padding: 16px 12px 0;
 }
 .mood-tab {
-  position: relative; flex: 1 1 0; min-width: 0; height: 100%; padding: 0; border: 0; background: none;
-  font: inherit; color: #141414; cursor: pointer; isolation: isolate; -webkit-tap-highlight-color: transparent;
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0;
+  padding: 0 2px 14px; border: 0; background: none; font: inherit; color: #555; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.mood-tab.is-active { z-index: 2; color: var(--white); }
-.mood-tab:focus-visible { outline: 3px solid var(--white); outline-offset: -8px; border-radius: 18px; }
-.mood-tab__shape { position: absolute; left: 0; top: 0; z-index: -1; overflow: visible; filter: drop-shadow(0 3px 5px rgba(70, 0, 0, .3)); transition: transform .2s; }
-.mood-tab:not(.is-active):hover .mood-tab__shape { transform: translateY(-2px); }
-.mood-tab__art {
-  position: absolute; left: 50%; bottom: calc(var(--ha) * .56); translate: -50% 50%; width: 94%;
-  display: flex; align-items: center; justify-content: center; gap: calc(var(--ha) * .035);
+.mood-tab__icon {
+  width: 68px; height: 68px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: #F7F2EF; transition: background .2s, box-shadow .2s, transform .2s;
 }
-.mood-tab__art img { display: block; width: auto; height: calc(var(--ha) * var(--icon-h, .5)); max-width: 62%; object-fit: contain; filter: drop-shadow(0 5px 5px rgba(80, 20, 0, .2)); }
-.mood-tab--store .mood-tab__art img { --icon-h: .49; }
-.mood-tab--meals .mood-tab__art img { --icon-h: .54; }
-.mood-tab--drinks .mood-tab__art img { --icon-h: .63; }
-.mood-tab--combo .mood-tab__art img { --icon-h: .54; }
-.mood-tab.is-active .mood-tab__art img { filter: drop-shadow(0 0 6px rgba(255, 244, 232, .9)) drop-shadow(0 5px 6px rgba(0, 0, 0, .25)); }
-.mood-tab__grid { width: calc(var(--ha) * .35); height: calc(var(--ha) * .35); fill: var(--white); }
-.mood-tab:not(.is-active) .mood-tab__grid { fill: var(--red); }
-.mood-tab__burst { flex: none; width: calc(var(--ha) * .052); height: calc(var(--ha) * .12); fill: none; stroke: #D8121D; stroke-width: 2.6; stroke-linecap: round; }
-.mood-tab__burst--right { transform: scaleX(-1); }
-.mood-tab.is-active .mood-tab__burst { stroke: var(--white); }
-.mood-tab__label {
-  position: absolute; left: 0; right: 0; bottom: calc(var(--ha) * .17); translate: 0 50%;
-  font-size: max(10px, 1.93cqw); font-weight: 700; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap; text-align: center;
+.mood-tab__icon img { width: 74%; height: 74%; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(60, 20, 0, .18)); }
+.mood-tab__grid { width: 42%; height: 42%; fill: var(--red); }
+.mood-tab__label { max-width: 100%; font-size: 14px; font-weight: 600; line-height: 1.2; text-align: center; }
+.mood-tab::after {
+  content: ""; position: absolute; left: 24%; right: 24%; bottom: 0; height: 3px; border-radius: 3px 3px 0 0;
+  background: var(--red); transform: scaleX(0); transition: transform .2s cubic-bezier(.2, .8, .2, 1);
 }
-.mood__strip {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; height: max(4px, .52cqw);
-  background: linear-gradient(180deg, #FFC4C2 0, #E61C22 22%, #FB050D 50%, #EE0912 78%, #D9262B 100%);
-  box-shadow: 0 max(4px, .45cqw) max(9px, .9cqw) rgba(190, 50, 35, .35);
+.mood-tab:hover .mood-tab__icon { transform: translateY(-2px); }
+.mood-tab:focus-visible { outline: none; }
+.mood-tab:focus-visible .mood-tab__icon { box-shadow: 0 0 0 3px var(--red-soft), 0 0 0 5px var(--red); }
+.mood-tab.is-active { color: var(--red); }
+.mood-tab.is-active .mood-tab__label { font-weight: 700; }
+.mood-tab.is-active .mood-tab__icon { background: var(--red-soft); box-shadow: inset 0 0 0 2px var(--red); }
+.mood-tab.is-active::after { transform: scaleX(1); }
+@media (max-width: 520px) {
+  .mood__bar { margin-top: -8px; border-radius: 20px 20px 0 0; }
+  .mood__tabs { gap: 2px; padding: 12px 6px 0; }
+  .mood-tab { gap: 6px; padding-bottom: 11px; }
+  .mood-tab__icon { width: 54px; height: 54px; }
+  .mood-tab__label { font-size: 12px; }
 }
 
 /* The slim copy of the category tabs that slides in once the cards have scrolled away */

@@ -268,43 +268,64 @@ em { font-family: "Playfair Display", Georgia, serif; font-style: italic; color:
 .store span { display: flex; flex-direction: column; line-height: 1.15; font-weight: 600; font-size: 17px; }
 .store small { font-size: 11px; font-weight: 400; color: var(--muted); }
 
-/* Footer: brand and contact | three link columns, then a slim bottom bar. Tablets stack the brand
-   above the columns; phones put the links in two columns. */
-.footer { background: var(--red-tint); border-top: 1px solid var(--line); }
+/* Footer, in BiteVo red: brand and contact | three link columns, then a darker bottom strip. Tablets stack the
+   brand above the columns; phones put the links in two columns. */
+.footer {
+  margin-top: 24px; border-radius: 28px 28px 0 0; overflow: hidden; color: rgba(255, 255, 255, .86);
+  background:
+    radial-gradient(90% 70% at 0% 0%, rgba(255, 255, 255, .10) 0%, transparent 60%),
+    radial-gradient(70% 60% at 100% 100%, rgba(0, 0, 0, .22) 0%, transparent 70%),
+    linear-gradient(160deg, #B71C1C 0%, #8E1414 55%, #6A0D0D 100%);
+}
 .footer__inner { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 1.6fr); gap: 56px; padding-block: 56px 48px; }
-.footer__brand { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
-.footer__logo img { display: block; width: 150px; height: auto; }
-.footer__brand p { color: var(--muted); font-size: 14.5px; line-height: 1.65; max-width: 320px; margin: 0; }
+.footer__brand { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
+.footer__logo { display: inline-block; padding: 10px 16px; border-radius: 16px; background: var(--white); box-shadow: 0 10px 26px rgba(40, 0, 0, .28); transition: transform .2s; }
+.footer__logo:hover { transform: translateY(-2px); }
+.footer__logo img { display: block; width: 140px; height: auto; }
+.footer__brand p { color: rgba(255, 255, 255, .84); font-size: 14.5px; line-height: 1.65; max-width: 320px; margin: 0; }
 .footer__contact { display: flex; flex-direction: column; gap: 10px; }
-.footer__contact a { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-size: 14.5px; font-weight: 500; white-space: nowrap; transition: color .2s; }
-.footer__contact a:hover { color: var(--red); }
+.footer__contact a { display: inline-flex; align-items: center; gap: 10px; color: var(--white); font-size: 14.5px; font-weight: 500; white-space: nowrap; transition: color .2s; }
+.footer__contact a:hover { color: #FFD866; }
 .footer__contact svg, .footer__social svg {
-  width: 18px; height: 18px; flex: none; fill: none; stroke: var(--red); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  width: 18px; height: 18px; flex: none; fill: none; stroke: #FFD24D; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
 .footer__social { display: flex; gap: 10px; }
-.footer__social a { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--white); border: 1px solid var(--line); transition: border-color .2s, transform .2s; }
-.footer__social a:hover { border-color: var(--red); transform: translateY(-2px); }
+.footer__social a {
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .25); transition: background .2s, transform .2s;
+}
+.footer__social a:hover { background: rgba(255, 255, 255, .22); transform: translateY(-2px); }
 .footer__links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
-.footer__col h4 { margin: 0 0 18px; font-size: 12.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink); }
+.footer__col h4 {
+  position: relative; margin: 0 0 20px; padding-bottom: 10px; font-size: 12.5px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--white);
+}
+.footer__col h4::after { content: ""; position: absolute; left: 0; bottom: 0; width: 26px; height: 3px; border-radius: 3px; background: #FFC93C; }
 .footer__col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.footer__col a { color: var(--muted); font-size: 14.5px; transition: color .2s; }
-.footer__col a:hover { color: var(--red); }
-.footer__bottom { background: var(--white); border-top: 1px solid var(--line); }
-.footer__bottom-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 24px; padding-block: 18px; font-size: 13px; color: var(--muted); }
+.footer__col a { display: inline-block; color: rgba(255, 255, 255, .78); font-size: 14.5px; transition: color .2s, transform .2s; }
+.footer__col a:hover { color: var(--white); transform: translateX(3px); }
+.footer__bottom { background: rgba(0, 0, 0, .2); border-top: 1px solid rgba(255, 255, 255, .12); }
+.footer__bottom-inner {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 24px;
+  padding-block: 18px; font-size: 13px; color: rgba(255, 255, 255, .72);
+}
 
 @media (max-width: 980px) {
   .footer__inner { grid-template-columns: 1fr; gap: 40px; padding-block: 48px 40px; }
 }
 @media (max-width: 600px) {
-  .footer__inner { gap: 32px; padding-block: 40px 32px; }
-  .footer__logo img { width: 136px; }
+  .footer { border-radius: 24px 24px 0 0; }
+  .footer__inner { gap: 30px; padding-block: 36px 30px; }
+  .footer__logo { padding: 8px 14px; border-radius: 14px; }
+  .footer__logo img { width: 124px; }
   .footer__contact { flex-direction: row; flex-wrap: wrap; gap: 10px; width: 100%; }
   .footer__contact a {
     flex: 1 1 auto; justify-content: center; padding: 11px 16px; font-size: 13.5px;
-    background: var(--white); border: 1px solid var(--line); border-radius: 999px;
+    background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .28); border-radius: 999px;
   }
-  .footer__links { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 20px; padding-top: 24px; border-top: 1px solid var(--line); }
-  .footer__col h4 { margin-bottom: 6px; }
+  .footer__contact a:active { background: rgba(255, 255, 255, .2); }
+  .footer__links { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 20px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, .16); }
+  .footer__col h4 { margin-bottom: 10px; padding-bottom: 8px; }
   .footer__col ul { gap: 0; }
   .footer__col a { display: block; padding: 4px 0; }
   .footer__col--inline { grid-column: 1 / -1; }
