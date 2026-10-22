@@ -1,38 +1,57 @@
-// Sends sign-in codes by SMS through Fast2SMS's OTP route, which needs no DLT registration: the customer
-// gets "Your OTP: 123456". Needs FAST2SMS_API_KEY in .env (fast2sms.com → Dev API).
+// Sign-in codes for mobile numbers through MiniMoth (minimoth.dev): MiniMoth makes the 6-digit code, sends
+// it on WhatsApp (or SMS from its own DLT-registered sender when WhatsApp doesn't go through) and checks the
+// code the customer types. Needs MINIMOTH_API_KEY in .env (dashboard → Project → Settings; an mm_test_ key
+// sends nothing and uses no credits).
 //
-// With OTP_DEV_MODE=true (the default) nothing is sent: the code is printed in this server's log and
-// returned to the website, which shows it on screen, so sign-in works in development. To go live, set
-// FAST2SMS_API_KEY and OTP_DEV_MODE=false.
+// With OTP_DEV_MODE=true (the default) MiniMoth isn't used: the website makes its own code, prints it in
+// this server's log and shows it on screen, so sign-in works in development (see routes/auth.js).
 import { config } from '../config.js';
-import { HttpError } from './http.js';
+import { HttpError, badRequest, tooMany, MIN } from './http.js';
 
-const FAST2SMS_URL = 'https://www.fast2sms.com/dev/bulkV2';
-const cantSend = () => new HttpError(503, 'We couldn’t send the code by SMS right now. Please try again in a minute.');
+const API = 'https://api.minimoth.dev/v1/otp';
+export const MINIMOTH_CODE_TTL_MS = 10 * MIN; // how long MiniMoth's codes work
+export const phoneCodesByMiniMoth = () => !config.otpDevMode;
 
-export async function sendOtpSms(phone, code) {
-  if (config.otpDevMode) {
-    console.log(`[dev] Sign-in code for ${phone}: ${code}`);
-    return;
-  }
-  if (!config.sms.fast2smsKey) {
-    console.error('[sms] OTP_DEV_MODE is false but FAST2SMS_API_KEY is empty, so sign-in codes can’t be sent.');
+const cantSend = () => new HttpError(503, 'We couldn’t send the code right now. Please try again in a minute.');
+const intl = phone => `+91${String(phone).replace(/\D/g, '').slice(-10)}`; // "+91 98765 43210" → "+919876543210"
+
+async function call(path, body) {
+  if (!config.sms.minimothKey) {
+    console.error('[otp] OTP_DEV_MODE is false but MINIMOTH_API_KEY is empty, so sign-in codes can’t be sent.');
     throw cantSend();
   }
-
-  const number = String(phone).replace(/\D/g, '').slice(-10); // "+91 98765 43210" → "9876543210"
   try {
-    const res = await fetch(FAST2SMS_URL, {
+    const res = await fetch(`${API}/${path}`, {
       method: 'POST',
-      headers: { authorization: config.sms.fast2smsKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ route: 'otp', variables_values: code, numbers: number, flash: 0 }),
+      headers: { 'X-Api-Key': config.sms.minimothKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
     });
     const data = await res.json().catch(() => null);
-    if (res.ok && data?.return === true) return;
-    console.error(`[sms] Fast2SMS didn’t send the code to ${phone}: HTTP ${res.status} ${JSON.stringify(data?.message ?? data)}`);
+    return { ok: res.ok, status: res.status, code: data?.code, error: data?.error };
   } catch (err) {
-    console.error(`[sms] Could not reach Fast2SMS: ${err.message}`);
+    console.error(`[otp] Could not reach MiniMoth: ${err.message}`);
+    throw cantSend();
   }
+}
+
+// Asks MiniMoth to send a new code to this number.
+export async function sendPhoneCode(phone) {
+  const r = await call('send', { phone: intl(phone) });
+  if (r.ok) return;
+  if (r.code === 'OTP_RATE_LIMITED') throw tooMany('Too many codes for this number. Please try again in 10 minutes.');
+  if (r.code === 'INVALID_PHONE') throw badRequest('Enter a valid 10-digit mobile number.');
+  console.error(`[otp] MiniMoth didn’t send the code to ${phone}: HTTP ${r.status} ${r.code || ''} ${r.error || ''}`);
   throw cantSend();
+}
+
+// Checks a code with MiniMoth: 'ok', 'wrong', 'expired' or 'locked' (too many wrong tries).
+export async function checkPhoneCode(phone, code) {
+  const r = await call('verify', { phone: intl(phone), code });
+  if (r.ok) return 'ok';
+  if (r.code === 'INVALID_OTP' || r.code === 'INVALID_OTP_CODE') return 'wrong';
+  if (r.code === 'OTP_NOT_FOUND') return 'expired';
+  if (r.code === 'VERIFY_RATE_LIMITED') return 'locked';
+  console.error(`[otp] MiniMoth couldn’t check the code for ${phone}: HTTP ${r.status} ${r.code || ''} ${r.error || ''}`);
+  throw new HttpError(503, 'We couldn’t check the code right now. Please try again in a minute.');
 }

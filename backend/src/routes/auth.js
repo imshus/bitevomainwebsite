@@ -12,7 +12,7 @@ import { config } from '../config.js';
 import { sha256 } from '../lib/ids.js';
 import { HttpError, badRequest, notFound, unauthorized, tooMany, nowIso, MIN } from '../lib/http.js';
 import { normalizePhone, deviceName, clientIp } from '../lib/rules.js';
-import { sendOtpSms } from '../lib/sms.js';
+import { phoneCodesByMiniMoth, sendPhoneCode, checkPhoneCode, MINIMOTH_CODE_TTL_MS } from '../lib/sms.js';
 import { verifyGoogleToken, makeTicket, readTicket } from '../lib/google.js';
 import { sendMail, mailEnabled, emailSignInEnabled, welcomeEmail, signInCodeEmail } from '../lib/mail.js';
 import { findSession, startSession, clearSessionCookie, publicCustomer } from '../auth.js';
@@ -58,7 +58,9 @@ const logAttempt = (req, identifier, customer, success, reason) => store.insert(
 // A new 6-digit code for a phone number ('otpCodes', 'phone') or an email address ('emailCodes', 'email').
 // Creates a code, hands it to `deliver` (SMS or email) and returns it. If delivery fails, the code is
 // thrown away again, so it doesn't hold up a retry or count towards the hourly limit.
-async function issueCode(collection, field, to, deliver) {
+// With `remote`, MiniMoth makes and checks the code: only the request is recorded (for the waits and
+// limits here), `deliver` asks MiniMoth to send it, and nothing is returned.
+async function issueCode(collection, field, to, deliver, { remote = false } = {}) {
   const since = new Date(Date.now() - 60 * MIN).toISOString();
   const recent = await store.find(collection, { [field]: to, createdAt: { $gte: since } }, { sort: { createdAt: -1 } });
   if (recent[0] && Date.now() - Date.parse(recent[0].createdAt) < RESEND_AFTER_MS) {
@@ -67,10 +69,10 @@ async function issueCode(collection, field, to, deliver) {
   if (recent.length >= MAX_CODES_PER_HOUR) {
     throw tooMany(`Too many codes for this ${field === 'phone' ? 'number' : 'email address'}. Please try again in an hour.`);
   }
-  const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  const code = remote ? null : String(crypto.randomInt(0, 1000000)).padStart(6, '0');
   const saved = await store.insert(collection, {
-    [field]: to, codeHash: codeHash(to, code), attempts: 0, usedAt: null,
-    createdAt: nowIso(), expiresAt: new Date(Date.now() + CODE_TTL_MS).toISOString(),
+    [field]: to, codeHash: remote ? null : codeHash(to, code), ...(remote && { remote: 'minimoth' }), attempts: 0, usedAt: null,
+    createdAt: nowIso(), expiresAt: new Date(Date.now() + (remote ? MINIMOTH_CODE_TTL_MS : CODE_TTL_MS)).toISOString(),
   });
   try {
     await deliver(code);
@@ -81,13 +83,29 @@ async function issueCode(collection, field, to, deliver) {
   return code;
 }
 
+// Is this the right code? Local codes are compared by hash; MiniMoth's are checked with MiniMoth.
+async function codeMatches(latest, to, code) {
+  if (code.length !== 6) return 'wrong';
+  if (!latest.remote) return codeHash(to, code) === latest.codeHash ? 'ok' : 'wrong';
+  return checkPhoneCode(to, code);
+}
+
 // Checks the latest code sent to `to` and uses it up. `fail(reason, message)` logs the attempt and throws.
 async function useCode(collection, field, to, rawCode, fail, checkWhere) {
   const code = String(rawCode || '').replace(/\D/g, '');
   const [latest] = await store.find(collection, { [field]: to, usedAt: null }, { sort: { createdAt: -1 }, limit: 1 });
   if (!latest || Date.parse(latest.expiresAt) < Date.now()) await fail('OTP expired', 'That code has expired. Ask for a new one.');
   if (latest.attempts >= MAX_ATTEMPTS) await fail('Too many attempts', 'Too many wrong tries. Ask for a new code.');
-  if (code.length !== 6 || codeHash(to, code) !== latest.codeHash) {
+  const result = await codeMatches(latest, to, code);
+  if (result === 'expired') {
+    await store.update(collection, latest._id, { usedAt: nowIso() });
+    await fail('OTP expired', 'That code has expired. Ask for a new one.');
+  }
+  if (result === 'locked') {
+    await store.update(collection, latest._id, { attempts: MAX_ATTEMPTS });
+    await fail('Too many attempts', 'Too many wrong tries. Ask for a new code.');
+  }
+  if (result !== 'ok') {
     await store.update(collection, latest._id, { attempts: latest.attempts + 1 });
     await fail('Invalid OTP', `That code isn’t right. Check the ${checkWhere} and try again.`);
   }
@@ -96,7 +114,12 @@ async function useCode(collection, field, to, rawCode, fail, checkWhere) {
 
 router.post('/otp', sendLimiter, async (req, res) => {
   const phone = requirePhone(req.body);
-  const code = await issueCode('otpCodes', 'phone', phone, c => sendOtpSms(phone, c));
+  // Live: MiniMoth makes the code and sends it on WhatsApp or SMS. Test mode: our own code, shown on screen.
+  const remote = phoneCodesByMiniMoth();
+  const code = await issueCode('otpCodes', 'phone', phone, c => {
+    if (remote) return sendPhoneCode(phone);
+    console.log(`[dev] Sign-in code for ${phone}: ${c}`);
+  }, { remote });
   const existing = await store.findOne('customers', { phone });
   res.json({
     phone,
@@ -113,7 +136,7 @@ router.post('/verify', verifyLimiter, async (req, res) => {
     await logAttempt(req, phone, customer, false, reason);
     throw unauthorized(message);
   };
-  await useCode('otpCodes', 'phone', phone, req.body?.code, fail, 'SMS');
+  await useCode('otpCodes', 'phone', phone, req.body?.code, fail, 'WhatsApp or SMS');
 
   // Finishing a Google sign-in: link that Google account to this number's BiteVo account.
   const google = req.body?.googleTicket ? readTicket(req.body.googleTicket) : null;

@@ -110,7 +110,7 @@ export default function LoginModal({ reason, existing, onDone }) {
           {google ? (
             <p className="login__lead">Signed in with Google as <b>{google.email}</b>. Add your mobile number to finish. Our delivery partner needs it, and you only do this once.</p>
           ) : (
-            <p className="login__lead">{reason || 'Enter your mobile number. We’ll text you a code to sign in or create your account.'}</p>
+            <p className="login__lead">{reason || 'Enter your mobile number. We’ll send you a code on WhatsApp or SMS to sign in or create your account.'}</p>
           )}
           {config?.googleClientId && !google && (
             <>
@@ -165,12 +165,12 @@ export default function LoginModal({ reason, existing, onDone }) {
         <form className="login__step" onSubmit={e => { e.preventDefault(); verify(code); }}>
           <h2>Enter the code</h2>
           <p className="login__lead">
-            {sent.email ? 'We emailed' : 'We sent'} a 6-digit code to <b>{sent.phone || sent.email}</b>.{' '}
+            {sent.email ? 'We emailed' : 'We sent'} a 6-digit code to <b>{sent.phone || sent.email}</b>{sent.phone && !sent.devCode ? ' on WhatsApp or SMS' : ''}.{' '}
             <button type="button" className="link" onClick={() => setStep(sent.email ? 'email' : 'phone')}>Change</button>
           </p>
           {sent.devCode && (
             <div className="dev-code">
-              <span>Test mode — no {sent.email ? 'email' : 'SMS'} is sent. Your code is <b>{sent.devCode}</b></span>
+              <span>Test mode — no {sent.email ? 'email' : 'WhatsApp or SMS'} is sent. Your code is <b>{sent.devCode}</b></span>
               <button type="button" className="link" onClick={() => onCode(sent.devCode)}>Fill it in</button>
             </div>
           )}
