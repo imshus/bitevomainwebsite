@@ -52,6 +52,8 @@ export const config = {
     storeUnlockAt: num(process.env.STORE_UNLOCK_AT, 399), // other items needed before one ₹1 store item can be added
   },
   otpDevMode: process.env.OTP_DEV_MODE !== 'false',
+  // SMS sign-in codes through Fast2SMS (see lib/sms.js). Used once OTP_DEV_MODE=false.
+  sms: { fast2smsKey: (process.env.FAST2SMS_API_KEY || '').trim() },
   // Google Maps Platform. The server key is used only here, for place search, place details and
   // turning a map pin into an address. The browser key draws the map, so restrict it to the
   // website's domains in Google Cloud (it falls back to the server key, which is fine on localhost).
