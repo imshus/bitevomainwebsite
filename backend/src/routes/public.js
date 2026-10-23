@@ -8,6 +8,7 @@ import { couponStatus, normalizePhone, clientIp } from '../lib/rules.js';
 import { getSettings } from '../lib/settings.js';
 import { optionalCustomer } from '../auth.js';
 import { razorpayEnabled } from '../lib/razorpay.js';
+import { deliveryAreaRule } from '../lib/deliveryArea.js';
 import { emailSignInEnabled } from '../lib/mail.js';
 
 export const router = Router();
@@ -34,6 +35,9 @@ router.get('/config', async (req, res) => {
     razorpay: razorpayEnabled() ? { keyId: config.razorpay.keyId } : null, // shows "Pay online" at checkout
     emailLogin: emailSignInEnabled(), // shows "Sign in with email"
     referral: config.referral.enabled ? { reward: config.referral.reward, ordersNeeded: config.referral.orders } : null,
+    // Where we deliver (null = everywhere the distance check allows): the website shows "Service unavailable"
+    // for other locations, using these patterns.
+    delivery: deliveryAreaRule(),
     // null when no Google Maps key is set: addresses are then typed in by hand.
     maps: config.maps.serverKey
       ? { browserKey: config.maps.browserKey, kitchen: config.maps.kitchen, radiusKm: config.maps.radiusKm || null }

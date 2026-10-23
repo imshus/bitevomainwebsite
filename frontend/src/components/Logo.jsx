@@ -1,6 +1,6 @@
 // The BiteVo logo, drawn `width` CSS pixels wide: a small WebP for most screens and a larger one for very sharp
 // screens. (A plain <img>: with a <picture> PNG fallback, browsers fetched both files.) `lazy` waits until
-// it's on screen (e.g. the footer's, or the header's on phones, where the menu page hides the header).
+// it's on screen (e.g. the header's on phones, where the menu page hides the header).
 export default function Logo({ width, lazy = false }) {
   return (
     <img

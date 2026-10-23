@@ -61,9 +61,9 @@ async function cleanAddress(body) {
   const lng = Number(body?.lng);
   if (body?.lat != null && body?.lng != null && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
     Object.assign(a, { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6, area: text(body?.area, 60), mapAddress: text(body?.mapAddress, 200) });
-    const check = deliveryCheck(a);
-    if (!check.deliverable) throw badRequest(`That address is ${check.distanceKm} km from our kitchen. We deliver up to ${check.radiusKm} km away for now.`);
   }
+  const check = deliveryCheck(a);
+  if (!check.deliverable) throw badRequest(check.message);
   return a;
 }
 

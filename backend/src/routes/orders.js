@@ -84,7 +84,8 @@ async function checkOrder(body, customer) {
   if (!address) throw badRequest('Pick a delivery address.');
   const { zones } = await getSettings();
   if (!zones.includes(address.zone)) throw badRequest(`We don’t deliver to ${address.zone || 'that area'} right now. Pick another address.`);
-  if (address.lat != null && !deliveryCheck(address).deliverable) throw badRequest('That address is outside our delivery range right now. Pick another address.');
+  const check = deliveryCheck(address);
+  if (!check.deliverable) throw badRequest(`${check.message} Pick another address.`);
 
   const bill = await quote(body, customer);
   if (bill.unavailable.length) {

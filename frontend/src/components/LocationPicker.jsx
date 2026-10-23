@@ -8,12 +8,16 @@ import { useConfig, loadConfig } from '../state/menu.js';
 import { setDeliveryLocation, locationFromAddress, locationFromPlace } from '../state/location.js';
 import { loadGoogleMaps, currentPosition, newSession } from '../lib/googleMaps.js';
 import { addressLine } from '../lib/format.js';
+import { deliversTo } from '../lib/deliveryArea.js';
 import Modal from './Modal.jsx';
 import { Search, Close, MapPin, Navigation, Crosshair, ChevronRight } from './Icons.jsx';
 
-const outOfRange = check => `We don’t deliver here yet. This spot is ${check.distanceKm} km from our kitchen, and we deliver up to ${check.radiusKm} km away.`;
+// Why a spot is outside the delivery area, from the server's check ("We deliver only to …").
+const unavailableReason = check => (check.message || `This spot is ${check.distanceKm} km from our kitchen, and we deliver up to ${check.radiusKm} km away.`)
+  .replace(/^Service unavailable at this location[.:]\s*/, '').replace(/^./, c => c.toUpperCase());
 
 export function PlaceSearch({ title, saved = [], onPick, onPickSaved }) {
+  const { data: config } = useConfig();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -112,7 +116,10 @@ export function PlaceSearch({ title, saved = [], onPick, onPickSaved }) {
           {saved.map(a => (
             <button type="button" key={a._id} className="place-row" onClick={() => onPickSaved(a)} disabled={Boolean(busy)}>
               <span className="place-row__icon"><MapPin /></span>
-              <span className="place-row__text"><b>{a.label}</b><span>{addressLine(a)}</span></span>
+              <span className="place-row__text">
+                <b>{a.label}</b><span>{addressLine(a)}</span>
+                {!deliversTo(a, config) && <small className="place-row__off">Service unavailable here</small>}
+              </span>
             </button>
           ))}
         </div>
@@ -121,8 +128,10 @@ export function PlaceSearch({ title, saved = [], onPick, onPickSaved }) {
   );
 }
 
-// A map with a pin fixed in the middle: the customer drags the map until the pin sits on their door.
-export function PinMap({ start, confirmLabel = 'Confirm location', onConfirm, onBack }) {
+// A map with a pin fixed in the middle: the customer drags the map until the pin sits on their door. A spot
+// outside the delivery area says "Service unavailable"; it can only be confirmed with `anywhere` (the menu's
+// location, which then shows the same message), not as an address to save.
+export function PinMap({ start, confirmLabel = 'Confirm location', onConfirm, onBack, anywhere = false }) {
   const box = useRef(null);
   const map = useRef(null);
   const looked = useRef({ lat: start.lat, lng: start.lng });
@@ -198,7 +207,8 @@ export function PinMap({ start, confirmLabel = 'Confirm location', onConfirm, on
   };
 
   const busy = moving || finding;
-  const blocked = !place.check?.deliverable;
+  const outside = place.check?.deliverable === false;
+  const blocked = outside && !anywhere;
   return (
     <div className="pin-map">
       <div className={`pin-map__frame${mapFailed ? ' is-failed' : ''}`}>
@@ -229,7 +239,9 @@ export function PinMap({ start, confirmLabel = 'Confirm location', onConfirm, on
           </span>
           {onBack && <button type="button" className="link" onClick={onBack}>Change</button>}
         </div>
-        {blocked && !finding && <p className="pin-card__warn" role="alert">{outOfRange(place.check)}</p>}
+        {outside && !finding && (
+          <p className="pin-card__warn" role="alert"><b>Service unavailable at this location</b>{unavailableReason(place.check)}</p>
+        )}
         {error && <p className="form-error" role="alert">{error}</p>}
         <button type="button" className="btn btn--red btn--block" disabled={busy || blocked || stale} onClick={() => onConfirm(place)}>
           {busy ? 'Finding address…' : confirmLabel}
@@ -260,7 +272,7 @@ export default function LocationPicker({ onClose, onAddAddress }) {
   return (
     <Modal onClose={onClose} label="Choose delivery location" className={`location-sheet${place ? ' location-sheet--map' : ''}`}>
       {place ? (
-        <PinMap start={place} onBack={() => setPlace(null)} onConfirm={p => choose(locationFromPlace(p))} />
+        <PinMap start={place} anywhere onBack={() => setPlace(null)} onConfirm={p => choose(locationFromPlace(p))} />
       ) : !config ? (
         <div className="place-search"><h2>Choose delivery location</h2><p className="muted">Loading…</p></div>
       ) : config.maps ? (

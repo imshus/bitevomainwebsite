@@ -23,6 +23,26 @@
 }
 .eta b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 .eta small { margin-top: 3px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.eta--off { font-style: normal; border-color: rgba(255, 255, 255, .4); opacity: .9; }
+.eta--off b { font-size: 22px; }
+
+/* "Service unavailable at this location": under the search row when the chosen location is outside the delivery area */
+.unserved {
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px;
+  background: var(--white); color: var(--ink); box-shadow: 0 4px 0 var(--edge);
+}
+.unserved__icon {
+  flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--red-soft); color: var(--red); font-size: 18px; font-weight: 800;
+}
+.unserved__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.3; }
+.unserved__text b { font-size: 15px; font-weight: 700; color: var(--red); }
+.unserved__text small { font-size: 13px; color: var(--muted); }
+.unserved__change {
+  flex: none; height: 36px; padding: 0 14px; border: 1.5px solid var(--red); border-radius: 10px; background: var(--white);
+  color: var(--red); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+}
+.unserved__change:hover { background: var(--red-soft); }
 
 .where {
   flex: 1; min-width: 0; display: flex; align-items: flex-end; padding: 0; border: 0; background: none;
@@ -183,6 +203,8 @@
 .pin-card__text span { font-size: 13.5px; color: var(--muted); }
 .pin-card__place .link { flex: none; padding-top: 7px; font-size: 14px; }
 .pin-card__warn { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: var(--amber-soft); color: #7A4A00; font-size: 14px; }
+.pin-card__warn b { display: block; color: var(--red); }
+.place-row__off { display: block; margin-top: 2px; color: var(--red); font-size: 12.5px; font-weight: 600; }
 .pin-add { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .pin-add svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; }
 

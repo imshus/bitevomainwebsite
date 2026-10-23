@@ -69,6 +69,12 @@ export const config = {
       : null,
     radiusKm: num(process.env.DELIVERY_RADIUS_KM, 0),
   },
+  // Where the kitchen delivers: these areas of this city (see lib/deliveryArea.js); everywhere else shows
+  // "Service unavailable". DELIVERY_AREAS set but empty = no area rule (then the distance above decides).
+  delivery: {
+    city: (process.env.DELIVERY_CITY ?? 'Gurugram').trim(),
+    areas: list(process.env.DELIVERY_AREAS ?? 'Sector 40, Sector 44, Sector 45'),
+  },
   // Public address of the website, used for links in emails.
   siteUrl: (process.env.SITE_URL || list(process.env.CLIENT_ORIGIN || 'http://localhost:2002')[0]).replace(/\/$/, ''),
   // "Continue with Google": the OAuth 2.0 Client ID (Web application) from Google Cloud. Empty = hidden.

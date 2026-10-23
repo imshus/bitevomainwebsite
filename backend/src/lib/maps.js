@@ -5,6 +5,7 @@
 import { config } from '../config.js';
 import { HttpError } from './http.js';
 import { getSettings } from './settings.js';
+import { areaCheck } from './deliveryArea.js';
 
 const PLACES = 'https://places.googleapis.com/v1';
 const GEOCODE = 'https://maps.googleapis.com/maps/api/geocode/json';
@@ -55,12 +56,17 @@ export function distanceKm(a, b) {
   return 6371 * 2 * Math.asin(Math.sqrt(h));
 }
 
-// Whether the kitchen delivers to a point. Without a kitchen position and radius, everywhere is fine.
-export function deliveryCheck(point) {
+// Whether the kitchen delivers to a map place or saved address: inside the delivery areas when they're set
+// (lib/deliveryArea.js), else within the radius of the kitchen. Without either, everywhere is fine.
+// `message` says why not.
+export function deliveryCheck(place) {
+  const area = areaCheck(place);
+  if (area) return { deliverable: area.inArea, distanceKm: null, radiusKm: null, message: area.message };
   const { kitchen, radiusKm } = config.maps;
-  if (!kitchen || !radiusKm || !point) return { deliverable: true, distanceKm: null, radiusKm: radiusKm || null };
-  const km = Math.round(distanceKm(kitchen, point) * 10) / 10;
-  return { deliverable: km <= radiusKm, distanceKm: km, radiusKm };
+  if (!kitchen || !radiusKm || place?.lat == null) return { deliverable: true, distanceKm: null, radiusKm: radiusKm || null, message: null };
+  const km = Math.round(distanceKm(kitchen, place) * 10) / 10;
+  const deliverable = km <= radiusKm;
+  return { deliverable, distanceKm: km, radiusKm, message: deliverable ? null : `Service unavailable at this location: it’s ${km} km from our kitchen, and we deliver up to ${radiusKm} km away.` };
 }
 
 // Picks the admin panel's delivery zone whose name matches the place's area or city, if any.
@@ -154,7 +160,7 @@ export async function placeDetails(placeId, { session } = {}) {
 export async function addressAt(lat, lng) {
   const key = `${lat.toFixed(4)},${lng.toFixed(4)}`; // about 10 m
   const cached = pinCache.get(key);
-  if (cached) return { ...cached, lat, lng, check: deliveryCheck({ lat, lng }) };
+  if (cached) return { ...cached, lat, lng, check: deliveryCheck({ ...cached, lat, lng }) };
   const qs = new URLSearchParams({ latlng: `${lat},${lng}`, language: 'en', region: 'in', key: config.maps.serverKey });
   const data = await google(`${GEOCODE}?${qs}`);
   const results = data.results || [];

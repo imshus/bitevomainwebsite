@@ -8,6 +8,8 @@ import { useDeliveryLocation, describeLocation, setDeliveryLocation, locationFro
 import { prefersReducedMotion } from '../lib/motion.js';
 import { lazyLoad, LazyPart, whenIdle, CANT_OPEN } from '../lib/lazy.js';
 import { useToast } from '../state/toast.jsx';
+import { useConfig } from '../state/menu.js';
+import { deliversTo, whereWeDeliver } from '../lib/deliveryArea.js';
 import SiteMenu from './SiteMenu.jsx';
 import { Search, Close } from './Icons.jsx';
 
@@ -82,6 +84,8 @@ export default function MenuHeader({ query, setQuery, vegOnly, setVegOnly, dishN
   useEffect(() => { whenIdle(warmPicker); }, []);
   useEffect(() => { if (picking) AddressForm.preload().catch(() => {}); }, [picking]);
   const where = describeLocation(location, customer?.addresses);
+  const { data: config } = useConfig();
+  const unserved = Boolean(where) && !deliversTo(where.spot, config);
   const saved = where?.addressId && customer?.addresses?.find(a => a._id === where.addressId);
   const tag = saved?.label || 'Deliver to';
   const hint = useRotatingHint(dishNames);
@@ -93,9 +97,13 @@ export default function MenuHeader({ query, setQuery, vegOnly, setVegOnly, dishN
   return (
     <div className="menu-head">
       <div className="menu-head__top">
-        <span className="eta" title={`Usually delivered in about ${DELIVERY_MINS} minutes`}>
-          <b>{DELIVERY_MINS}</b><small>mins</small>
-        </span>
+        {unserved ? (
+          <span className="eta eta--off" title="We don’t deliver to this location yet"><b>✕</b><small>N/A</small></span>
+        ) : (
+          <span className="eta" title={`Usually delivered in about ${DELIVERY_MINS} minutes`}>
+            <b>{DELIVERY_MINS}</b><small>mins</small>
+          </span>
+        )}
         <button type="button" className="where" onClick={() => setPicking(true)} onPointerEnter={warmPicker} onFocus={warmPicker} aria-label={where ? `Delivering to ${where.subtitle || where.title}. Change location` : 'Set your delivery location'}>
           {where ? (
             <><span className="where__text"><b>{tag} - </b>{where.subtitle || where.title}</span><Caret /></>
@@ -141,6 +149,17 @@ export default function MenuHeader({ query, setQuery, vegOnly, setVegOnly, dishN
           <span className="visually-hidden">Show veg dishes only</span>
         </button>
       </div>
+
+      {unserved && (
+        <div className="unserved" role="status">
+          <span className="unserved__icon" aria-hidden="true">!</span>
+          <span className="unserved__text">
+            <b>Service unavailable at this location</b>
+            <small>{whereWeDeliver(config)}</small>
+          </span>
+          <button type="button" className="unserved__change" onClick={() => setPicking(true)} onPointerEnter={warmPicker}>Change</button>
+        </div>
+      )}
 
       <LazyPart onError={() => { setPicking(false); setAdding(false); toast(CANT_OPEN, 'error'); }}>
         {picking && <LocationPicker onClose={() => setPicking(false)} onAddAddress={() => { setPicking(false); setAdding(true); }} />}

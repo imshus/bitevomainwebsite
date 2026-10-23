@@ -19,6 +19,7 @@ import Modal from '../components/Modal.jsx';
 import Confetti from '../components/Confetti.jsx';
 import { money, addressLine, offerHeadline } from '../lib/format.js';
 import { srcSet } from '../lib/photo.js';
+import { deliversTo, whereWeDeliver } from '../lib/deliveryArea.js';
 import usePageTitle from '../lib/usePageTitle.js';
 import '../checkout.css';
 
@@ -200,6 +201,7 @@ export default function Checkout() {
     setAddressIdState((chosen || (!deliveryLocation?.place && (addresses.find(a => a._id === last) || addresses[0])))?._id || null);
   }, [addresses, addressId, deliveryLocation]);
   const selected = addresses.find(a => a._id === addressId);
+  const served = !selected || deliversTo(selected, siteConfig);
 
   if (!cart.lines.length) {
     return (
@@ -285,7 +287,8 @@ export default function Checkout() {
     }
   };
 
-  const blocker = !quote ? null
+  const blocker = !served ? `Service unavailable at this address. ${whereWeDeliver(siteConfig)}`
+    : !quote ? null
     : quote.unavailable.length ? 'Remove the dishes that are no longer available.'
     : quote.couponError ? 'Remove the offer, or update your cart to use it.'
     : quote.storeItem?.error ? quote.storeItem.error
@@ -295,9 +298,10 @@ export default function Checkout() {
   // The one main button, in the pay bar.
   const action = !signedIn ? { label: 'Sign in to order', run: place }
     : !addressId ? { label: 'Add address', run: chooseAddress }
+    : !served ? { label: 'Change address', run: chooseAddress }
     : needsPhone && !phoneOk ? { label: 'Add mobile number', run: () => phoneInput.current?.focus() }
     : { label: !quote ? 'Place order' : payingOnline ? `Pay ${money(quote.payable)}` : `Place order · ${money(quote.payable)}`, run: place };
-  const actionDisabled = placing || !quote || Boolean(blocker);
+  const actionDisabled = served ? placing || !quote || Boolean(blocker) : false;
   const paidByWallet = quote?.payable === 0 && quote?.walletUsed > 0;
   const canChoosePay = onlineOk && !paidByWallet;
 
@@ -310,7 +314,7 @@ export default function Checkout() {
             <small>BiteVo Kitchen</small>
             <button type="button" className="co-head__where" onClick={chooseAddress}>
               <Navigation />
-              <span><b>{DELIVERY_MINS} mins</b> to {selected ? `${selected.label} | ${addressLine(selected)}` : signedIn ? 'add a delivery address' : 'your address'}</span>
+              <span><b>{served ? `${DELIVERY_MINS} mins` : 'Service unavailable'}</b> {served ? 'to' : 'at'} {selected ? `${selected.label} | ${addressLine(selected)}` : signedIn ? 'add a delivery address' : 'your address'}</span>
               <ChevronDown />
             </button>
           </div>
@@ -413,6 +417,7 @@ export default function Checkout() {
                 <span className="co-row__icon"><MapPin /></span>
                 <span className="co-row__text">
                   {selected ? <><b>Deliver to {selected.label}</b><small>{addressLine(selected)}</small></> : <><b>Add a delivery address</b><small>We’ll need it to deliver your order</small></>}
+                  {!served && <small className="co-row__off">Service unavailable here. Pick or add an address in our delivery area.</small>}
                 </span>
                 <span className="co-row__go">{selected ? 'Change' : 'Add'}</span>
               </button>
@@ -510,6 +515,7 @@ export default function Checkout() {
                 <span className="address__body">
                   <b>{a.label}</b>
                   <span>{addressLine(a)}</span>
+                  {!deliversTo(a, siteConfig) && <small className="co-row__off">Service unavailable here</small>}
                 </span>
                 <button type="button" className="link" onClick={e => { e.preventDefault(); setChoosing(false); setEditing(a); }}>Edit</button>
               </label>

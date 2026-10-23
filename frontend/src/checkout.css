@@ -126,6 +126,8 @@
 .co-row__text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
 .co-row__text b { font-size: 15px; }
 .co-row__text small { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* An address outside the delivery area */
+.co-row__text small.co-row__off, .co-row__off { display: block; color: var(--red); font-weight: 600; white-space: normal; }
 .co-row__go { flex: none; font-size: 14px; font-weight: 700; color: var(--red); }
 .co-who { margin: 12px 0 0; font-size: 13.5px; color: var(--muted); }
 .co-who b { color: var(--ink); }
