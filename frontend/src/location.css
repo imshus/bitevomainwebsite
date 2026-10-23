@@ -195,22 +195,8 @@
   .pin-card { padding: 16px 18px 18px; }
 }
 
-/* "Har Mood Ka Perfect Bite": the headline artwork, then the white bar with the five menu tabs. */
+/* The white bar with the five menu tabs */
 .mood { position: relative; width: min(100%, 1440px); margin: 6px auto 0; container-type: inline-size; }
-.mood__art { display: block; }
-.mood__art img {
-  display: block; width: 100%; height: auto;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 9%, #000 90%, transparent 100%);
-  mask-image: linear-gradient(180deg, transparent 0, #000 9%, #000 90%, transparent 100%);
-}
-@media (min-width: 1441px) {
-  .mood__art img {
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent), linear-gradient(180deg, transparent 0, #000 9%, #000 90%, transparent 100%);
-    -webkit-mask-composite: source-in;
-    mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent), linear-gradient(180deg, transparent 0, #000 9%, #000 90%, transparent 100%);
-    mask-composite: intersect;
-  }
-}
 /* The category bar: white, with rounded top corners, joining the red header to the menu below */
 .mood__bar {
   position: relative; z-index: 1; margin-top: -10px; background: var(--white);

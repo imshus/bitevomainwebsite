@@ -1,6 +1,5 @@
-// "Har Mood Ka Perfect Bite": the headline artwork, then the five menu tabs in a white bar that joins the red
-// header to the menu below. Each tab is a round picture with its name; the selected one is outlined in red,
-// with its name in red and a short red line under it.
+// The five menu tabs in a white bar that joins the red header to the menu below. Each tab is a round picture
+// with its name; the selected one is outlined in red, with its name in red and a short red line under it.
 import { forwardRef } from 'react';
 import { TABS } from '../lib/menuTabs.js';
 
@@ -14,12 +13,6 @@ const GridIcon = () => (
 const MoodTabs = forwardRef(function MoodTabs({ active, onChoose }, ref) {
   return (
     <section className="mood" aria-label="Menu sections">
-      <picture className="mood__art">
-        <img
-          src="/assets/menu/mood-1917.webp" srcSet="/assets/menu/mood-960.webp 960w, /assets/menu/mood-1917.webp 1917w" sizes="100vw"
-          alt="Har mood ka perfect bite" width="1917" height="280"
-        />
-      </picture>
       <div className="mood__bar">
         <div className="mood__tabs" ref={ref} role="group" aria-label="Menu tabs">
           {TABS.map(t => (

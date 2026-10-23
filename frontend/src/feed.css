@@ -93,6 +93,23 @@
 @media (min-width: 640px) {
   .dish-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
 }
+/* Phones (a tab or search results): two dishes side by side, each with its photo on top */
+@media (max-width: 639px) {
+  .dish-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .dish-grid > .dish--row { flex-direction: column; gap: 8px; padding: 6px 6px 10px; }
+  .dish-grid > .dish--row .dish__img { width: 100%; max-width: none; min-height: 0; aspect-ratio: 4 / 3; }
+  .dish-grid > .dish--row .dish__body { padding: 0 4px; }
+  .dish-grid > .dish--row .dish__meta { margin-bottom: 4px; }
+  .dish-grid > .dish--row h3 { font-size: 14px; line-height: 1.3; }
+  .dish-grid > .dish--row p { font-size: 12px; margin-bottom: 8px; }
+  .dish-grid > .dish--row .dish__foot { gap: 6px; flex-wrap: nowrap; align-items: flex-end; }
+  .dish-grid > .dish--row .price { gap: 0 5px; min-width: 0; }
+  .dish-grid > .dish--row .price b { font-size: 14.5px; }
+  .dish-grid > .dish--row .price s { font-size: 11.5px; }
+  .dish-grid > .dish--row .price small { flex-basis: 100%; font-size: 11px; line-height: 1.2; } /* "% off" under the price */
+  .dish-grid > .dish--row .add-btn { height: 32px; min-width: 70px; padding: 0 10px; font-size: 13px; }
+  .dish-grid > .dish--row .stepper { height: 32px; }
+}
 
 /* The same cards in a sideways row (each section on the "All" tab); the next card peeks in at the edge */
 .dish-rail {
