@@ -89,6 +89,21 @@ welcome email and an order confirmation for each order, sent from your Hostinger
 password nothing is sent (the API log notes each email it skipped), and sending never slows down or breaks
 sign-in or ordering.
 
+## Image uploads (Supabase Storage)
+
+`POST /api/uploads` stores an image in the public Supabase Storage bucket the admin panel also uses
+(`SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_BUCKET`, default `bitevo-images`) and returns
+`{ url, name, type, size }`. `url` is a public link (`https://<project>.supabase.co/storage/v1/object/public/bitevo-images/site/<id>.jpg`)
+that works in any `<img>` on the website, in the admin panel and in the app.
+
+- Send the image itself as the request body with its Content-Type (`image/jpeg`, `image/png`,
+  `image/webp` or `image/gif`), at most 5 MB. The file's first bytes must really be that kind of image.
+- Who can upload: a signed-in customer (website or app, same session cookie), or anyone sending an
+  `x-upload-key` header that matches `UPLOAD_API_KEY` (for scripts and other servers). 40 uploads an hour per address.
+- On the website: `const { url } = await api.uploadImage(file)` with a File from `<input type="file" accept="image/*">`.
+- With curl: `curl -X POST https://bitevo.in/api/uploads -H "x-upload-key: $UPLOAD_API_KEY" -H "Content-Type: image/jpeg" --data-binary @photo.jpg`
+- Every upload is noted in the `uploads` collection (name, link, size, who uploaded it).
+
 ## Sign-in codes (OTP)
 
 No SMS provider is connected yet. With `OTP_DEV_MODE=true` (the default) the code is shown on screen

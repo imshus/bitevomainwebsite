@@ -44,6 +44,23 @@ const post = (path, body, opts) => request('POST', path, body ?? {}, opts);
 const patch = (path, body) => request('PATCH', path, body);
 const del = path => request('DELETE', path);
 
+// Uploads an image (a File or Blob, e.g. from <input type="file" accept="image/*">) to POST /api/uploads.
+// Resolves with { url, name, type, size }; `url` is a public link that works in any <img>.
+async function uploadImage(file) {
+  let res;
+  try {
+    res = await fetch(`${BASE}/api/uploads`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+  } catch {
+    throw new ApiError('Can’t reach BiteVo right now. Check your internet connection and try again.');
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    if (res.status === 401) onUnauthorized();
+    throw new ApiError(data?.error || (res.status === 413 ? 'That image is too big (5 MB at most).' : `Upload failed (${res.status}).`), res.status, data);
+  }
+  return data;
+}
+
 // The page starts fetching the menu and site settings before this code has even arrived (see earlyStart in
 // vite.config.js). The first ask for each uses that answer; if it failed, it asks again the usual way.
 function early(path) {
@@ -54,6 +71,7 @@ function early(path) {
 }
 
 export const api = {
+  uploadImage,
   config: () => early('/config'),
   menu: () => early('/menu'),
   offers: () => get('/offers', { quiet401: true }),

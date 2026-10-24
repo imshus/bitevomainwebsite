@@ -37,6 +37,15 @@ export const config = {
   // Origins of the website allowed to call the API with cookies.
   // Browsers send an origin without a trailing slash, so "https://bitevo.in/" is accepted as "https://bitevo.in".
   clientOrigins: [...new Set([...list(process.env.CLIENT_ORIGIN || 'http://localhost:2002').map(o => o.replace(/\/+$/, '')), ...SITE_ORIGINS])],
+  // Image uploads (POST /api/uploads) go to the same public Supabase Storage bucket the admin panel uses,
+  // so every link works on the website, in the panel and in the app.
+  supabase: {
+    url: (process.env.SUPABASE_URL || '').replace(/\/+$/, ''),
+    key: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    bucket: process.env.SUPABASE_BUCKET || 'bitevo-images',
+  },
+  // Optional: lets a script or another server upload with an `x-upload-key` header instead of a customer sign-in.
+  uploadApiKey: (process.env.UPLOAD_API_KEY || '').trim(),
   // Prefix for menu photos the admin panel uploaded (stored as /uploads/<file>).
   adminPublicUrl: (process.env.ADMIN_PUBLIC_URL || '').replace(/\/$/, ''),
   // Delivery is free on each customer's first FREE_DELIVERY_ORDERS orders (cancelled ones don't count),

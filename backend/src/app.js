@@ -17,6 +17,7 @@ import { router as accountRoutes } from './routes/account.js';
 import { router as orderRoutes } from './routes/orders.js';
 import { router as placeRoutes } from './routes/places.js';
 import { router as referralRoutes, meRouter as myReferralRoutes } from './routes/referrals.js';
+import { router as uploadRoutes } from './routes/uploads.js';
 
 const SITE_DIR = fileURLToPath(new URL('../../frontend/dist', import.meta.url));
 
@@ -68,6 +69,7 @@ export function createApp() {
   app.use('/api/orders', orderRoutes);
   app.use('/api/places', placeRoutes);
   app.use('/api/referrals', referralRoutes);
+  app.use('/api/uploads', uploadRoutes);
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
   app.use(siteRoutes());
