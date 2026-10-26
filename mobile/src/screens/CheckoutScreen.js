@@ -46,7 +46,7 @@ function Line({ line }) {
       <View style={st.miniStepper}>
         <Pressable onPress={() => cart.setQty(line.productId, line.qty - 1)} hitSlop={8} style={st.miniBtn}><Text style={st.miniText}>−</Text></Pressable>
         <Text style={st.miniQty}>{line.qty}</Text>
-        <Pressable onPress={() => cart.setQty(line.productId, line.qty + 1)} hitSlop={8} style={st.miniBtn}><Text style={st.miniText}>+</Text></Pressable>
+        <Pressable onPress={() => cart.setQty(line.productId, line.qty + 1)} disabled={line.qty >= cart.maxQtyOf(line)} hitSlop={8} style={[st.miniBtn, line.qty >= cart.maxQtyOf(line) && { opacity: 0.35 }]}><Text style={st.miniText}>+</Text></Pressable>
       </View>
       <Text style={st.linePrice}>{money(line.price * line.qty)}</Text>
     </View>

@@ -333,7 +333,7 @@ export default function Checkout() {
                   <span className="co-item__name"><VegMark veg={l.isVeg} /><span>{l.name}{gone && <small>No longer available</small>}</span></span>
                   {gone
                     ? <button type="button" className="link" onClick={() => cart.setQty(l.productId, 0)}>Remove</button>
-                    : <Stepper small qty={l.qty} label={l.name} onChange={n => cart.setQty(l.productId, n)} />}
+                    : <Stepper small qty={l.qty} label={l.name} onChange={n => cart.setQty(l.productId, n)} max={cart.maxQtyOf(l)} />}
                   <span className="co-item__price">{money(l.price * l.qty)}</span>
                 </li>
               );

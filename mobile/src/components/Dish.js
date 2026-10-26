@@ -25,7 +25,7 @@ export function AddButton({ product, wide }) {
     <View style={[st.stepper, wide && st.wide]}>
       <Pressable onPress={() => cart.setQty(product, qty - 1)} style={st.stepBtn} hitSlop={6} accessibilityLabel={`One less ${product.name}`}><Text style={st.stepText}>−</Text></Pressable>
       <Text style={st.stepQty}>{qty}</Text>
-      <Pressable onPress={() => cart.setQty(product, qty + 1)} style={st.stepBtn} hitSlop={6} accessibilityLabel={`One more ${product.name}`}><Text style={st.stepText}>+</Text></Pressable>
+      <Pressable onPress={() => cart.setQty(product, qty + 1)} disabled={qty >= cart.maxQtyOf(product)} style={[st.stepBtn, qty >= cart.maxQtyOf(product) && { opacity: 0.4 }]} hitSlop={6} accessibilityLabel={`One more ${product.name}`}><Text style={st.stepText}>+</Text></Pressable>
     </View>
   );
 }

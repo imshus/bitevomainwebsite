@@ -16,7 +16,10 @@ function load() {
   }
 }
 
-const snapshot = p => ({ productId: p._id, name: p.name, price: p.price, image: p.image, isVeg: p.isVeg });
+// ₹1 store items: one per order (once the rest reaches ₹399, see StoreLock.jsx). Menu dishes carry their tab;
+// anything else priced ₹1 counts too.
+const isStoreItem = p => p.store ?? (p.tab ? p.tab === 'store' : p.price <= 1);
+const snapshot = p => ({ productId: p._id, name: p.name, price: p.price, image: p.image, isVeg: p.isVeg, store: isStoreItem(p) });
 
 export function CartProvider({ children }) {
   const [state, setState] = useState(load);
@@ -32,17 +35,23 @@ export function CartProvider({ children }) {
 
   const setQty = useCallback((productOrId, qty) => {
     const id = typeof productOrId === 'string' ? productOrId : productOrId._id;
-    const n = Math.max(0, Math.min(MAX_QTY, qty));
     const before = latest.current;
+    const line = before.lines.find(l => l.productId === id);
+    const store = line ? isStoreItem(line) : typeof productOrId === 'object' && isStoreItem(productOrId);
+    // Only one ₹1 item: never more than 1 of it, and picking another one swaps it in.
+    const n = Math.max(0, Math.min(store ? 1 : MAX_QTY, qty));
+    const swapped = store && n > 0 && !line && before.lines.find(l => l.productId !== id && isStoreItem(l));
     setState(s => {
       const exists = s.lines.some(l => l.productId === id);
       let lines;
       if (n === 0) lines = s.lines.filter(l => l.productId !== id);
       else if (exists) lines = s.lines.map(l => (l.productId === id ? { ...l, qty: n } : l));
-      else if (typeof productOrId === 'object') lines = [...s.lines, { ...snapshot(productOrId), qty: n }];
-      else return s;
+      else if (typeof productOrId === 'object') {
+        lines = [...s.lines.filter(l => !(store && isStoreItem(l))), { ...snapshot(productOrId), qty: n }];
+      } else return s;
       return { ...s, lines, coupon: lines.length ? s.coupon : '' };
     });
+    if (swapped) toast(`One ₹1 item per order: ${swapped.name} swapped for ${productOrId.name}.`, 'info');
 
     // Taking a dish out of the cart can be undone for a few seconds (back in the same place).
     const removed = n === 0 && before.lines.find(l => l.productId === id);
@@ -65,7 +74,7 @@ export function CartProvider({ children }) {
   const syncWithMenu = useCallback(products => {
     const byId = new Map(products.map(p => [p._id, p]));
     setState(s => {
-      const lines = s.lines.filter(l => byId.has(l.productId)).map(l => ({ ...snapshot(byId.get(l.productId)), qty: l.qty }));
+      const lines = s.lines.filter(l => byId.has(l.productId)).map(l => ({ ...snapshot({ ...byId.get(l.productId), store: l.store }), qty: l.qty }));
       const same = lines.length === s.lines.length && lines.every((l, i) => JSON.stringify(l) === JSON.stringify(s.lines[i]));
       return same ? s : { ...s, lines };
     });
@@ -74,6 +83,7 @@ export function CartProvider({ children }) {
   const value = useMemo(() => {
     const qtyOf = id => state.lines.find(l => l.productId === id)?.qty || 0;
     return {
+      maxQtyOf: product => (isStoreItem(product) ? 1 : MAX_QTY),
       lines: state.lines,
       coupon: state.coupon,
       count: state.lines.reduce((s, l) => s + l.qty, 0),

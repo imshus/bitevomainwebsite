@@ -20,12 +20,12 @@ export function VegMark({ veg }) {
   return <span className={`veg-mark${veg ? '' : ' veg-mark--non'}`} role="img" aria-label={veg ? 'Vegetarian' : 'Non-vegetarian'} title={veg ? 'Veg' : 'Non-veg'} />;
 }
 
-export function Stepper({ qty, onChange, label, small = false }) {
+export function Stepper({ qty, onChange, label, small = false, max = 20 }) {
   return (
     <div className={`stepper${small ? ' stepper--sm' : ''}`} role="group" aria-label={`Quantity of ${label}`}>
       <button type="button" onClick={() => onChange(qty - 1)} aria-label={qty === 1 ? `Remove ${label}` : `Remove one ${label}`}>−</button>
       <span className="stepper__n" aria-live="polite"><b key={qty}>{qty}</b></span>
-      <button type="button" onClick={() => onChange(qty + 1)} aria-label={`Add one more ${label}`} disabled={qty >= 20}>+</button>
+      <button type="button" onClick={() => onChange(qty + 1)} aria-label={`Add one more ${label}`} disabled={qty >= max}>+</button>
     </div>
   );
 }
@@ -35,7 +35,7 @@ export function AddButton({ product, wide = false, compact = false }) {
   const cart = useCart();
   const qty = cart.qtyOf(product._id);
   if (!product.isAvailable) return <span className="sold-out">Sold out</span>;
-  if (qty) return <Stepper qty={qty} label={product.name} onChange={n => cart.setQty(product, n)} small={compact} />;
+  if (qty) return <Stepper qty={qty} label={product.name} onChange={n => cart.setQty(product, n)} small={compact} max={cart.maxQtyOf(product)} />;
   const add = e => {
     const photo = e.currentTarget.closest('.dish, .tile, .dish-sheet')?.querySelector('img');
     flyToCart(photo);
