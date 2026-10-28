@@ -35,7 +35,8 @@ export function CartBar() {
   if (!shown) return null;
   // Savings against the menu's crossed-out prices (MRP), worked out from the current menu.
   const mrpOf = id => menu?.products.find(p => p._id === id)?.mrp;
-  const saved = cart.lines.reduce((sum, l) => sum + Math.max(0, (mrpOf(l.productId) || 0) - l.price) * l.qty, 0);
+  // MRP is the full plate's, so half plates don't count towards the saving.
+  const saved = cart.lines.reduce((sum, l) => sum + (l.portion === 'half' ? 0 : Math.max(0, (mrpOf(l.productId) || 0) - l.price) * l.qty), 0);
   const thumb = cart.lines.find(l => l.image)?.image;
   return (
     <button type="button" className="cart-bar" onClick={() => navigate('/checkout')} aria-label={`View cart: ${cart.count} item${cart.count > 1 ? 's' : ''}, ${money(cart.itemTotal)}`}>

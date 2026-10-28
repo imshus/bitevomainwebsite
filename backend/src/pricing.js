@@ -23,30 +23,40 @@ export async function hasOrdered(customerId) {
 }
 
 // Cart lines → order items with today's prices. Unknown or sold-out dishes are reported, not priced.
+// Dishes with a half-plate price (set in the admin panel) come as a half or a full plate: `portion: 'half'`
+// is charged the half price, and both are named "(Half)"/"(Full)" so the kitchen sees which on the order.
 async function priceLines(rawItems) {
   if (!Array.isArray(rawItems) || !rawItems.length) return { lines: [], unavailable: [] };
-  const wanted = new Map();
+  const wanted = new Map(); // "productId|portion" → { productId, portion, qty }
   for (const item of rawItems.slice(0, MAX_LINES)) {
-    const id = String(item?.productId || '');
+    const productId = String(item?.productId || '');
+    const portion = item?.portion === 'half' ? 'half' : 'full';
     const qty = Math.round(Number(item?.qty) || 0);
-    if (id && qty > 0) wanted.set(id, Math.min(MAX_QTY, (wanted.get(id) || 0) + qty));
+    if (!productId || qty <= 0) continue;
+    const key = `${productId}|${portion}`;
+    wanted.set(key, { productId, portion, qty: Math.min(MAX_QTY, (wanted.get(key)?.qty || 0) + qty) });
   }
   const [products, categories] = await Promise.all([
-    store.find('products', { _id: { $in: [...wanted.keys()] } }),
+    store.find('products', { _id: { $in: [...new Set([...wanted.values()].map(w => w.productId))] } }),
     store.find('categories'),
   ]);
   const byId = new Map(products.map(p => [p._id, p]));
   const labelOf = new Map(categories.map(c => [c.key, c.label || '']));
   const lines = [];
   const unavailable = [];
-  for (const [productId, qty] of wanted) {
+  for (const { productId, portion, qty } of wanted.values()) {
     const p = byId.get(productId);
-    if (!p || !p.isAvailable) {
-      unavailable.push({ productId, name: p?.name || 'A dish that’s no longer on the menu' });
+    const halves = p?.type !== 'combo' && p?.halfPrice > 0;
+    if (!p || !p.isAvailable || (portion === 'half' && !halves)) {
+      const name = p ? (portion === 'half' ? `${p.name} (Half plate)` : p.name) : 'A dish that’s no longer on the menu';
+      unavailable.push({ productId, ...(portion === 'half' && { portion }), name });
       continue;
     }
     lines.push({
-      productId: p._id, name: p.name, category: p.category, price: p.price, qty, isVeg: Boolean(p.isVeg),
+      productId: p._id, category: p.category, qty, isVeg: Boolean(p.isVeg),
+      ...(halves
+        ? { portion, name: `${p.name} (${portion === 'half' ? 'Half' : 'Full'})`, price: portion === 'half' ? p.halfPrice : p.price }
+        : { name: p.name, price: p.price }),
       ...(isStoreItem(p, labelOf.get(p.category)) && { store: true }),
     });
   }

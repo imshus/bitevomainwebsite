@@ -577,3 +577,26 @@ a, button, label, summary { -webkit-tap-highlight-color: transparent; touch-acti
 @media (max-width: 980px) {
   .checkout { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Half / full plate: the price line, the "Half / Full" hint on Add, and the portion chooser */
+.price__half { flex-basis: 100%; color: var(--muted); font-size: 12px; font-weight: 600; }
+.dish__foot > .add-btn, .dish__foot > .stepper { flex: none; } /* the price wraps instead of squeezing these */
+.add-btn--choose { position: relative; }
+.add-btn--choose small {
+  position: absolute; left: 0; right: 0; top: calc(100% + 3px); color: var(--muted);
+  font-size: 9.5px; font-weight: 600; letter-spacing: .02em; text-transform: none; white-space: nowrap; text-align: center;
+}
+.portion-sheet.sheet--dialog { width: min(440px, 100%); }
+.portion-sheet__head { display: flex; align-items: center; gap: 10px; padding-right: 44px; }
+.portion-sheet__head h2 { margin: 0; font-size: 19px; line-height: 1.3; }
+.portion-sheet__hint { margin: 6px 0 14px; color: var(--muted); font-size: 14px; }
+.portions { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 10px; }
+.dish-sheet__body .portions { margin: 16px 0 0; }
+.portion {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px;
+  border: 1.5px solid #E6E6E6; border-radius: 14px; background: var(--white); transition: border-color .2s, background .2s;
+}
+.portion.is-on { border-color: #9ED39A; background: #F4FBF3; }
+.portion__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.portion__text > b { font-size: 15px; color: var(--ink); }
+.portion .price b { font-size: 15px; }

@@ -2,7 +2,7 @@
 // the dish details sheet.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useCart } from '../state/cart.jsx';
+import { useCart, hasHalfPlate } from '../state/cart.jsx';
 import { money } from '../lib/format.js';
 import { srcSet, sized } from '../lib/photo.js';
 import { flyToCart } from '../lib/motion.js';
@@ -31,29 +31,84 @@ export function Stepper({ qty, onChange, label, small = false, max = 20 }) {
 }
 
 // `photo` is the element the fly-to-cart animation starts from (the card's or the sheet's photo).
+// Dishes that come as a half or a full plate open the portion chooser instead (its + and − too).
 export function AddButton({ product, wide = false, compact = false }) {
   const cart = useCart();
+  const [choosing, setChoosing] = useState(false);
   const qty = cart.qtyOf(product._id);
   if (!product.isAvailable) return <span className="sold-out">Sold out</span>;
-  if (qty) return <Stepper qty={qty} label={product.name} onChange={n => cart.setQty(product, n)} small={compact} max={cart.maxQtyOf(product)} />;
+  const portions = hasHalfPlate(product);
+  const chooser = choosing && <PortionPicker product={product} onClose={() => setChoosing(false)} />;
+  if (qty) {
+    return (
+      <>
+        <Stepper qty={qty} label={product.name} onChange={n => (portions ? setChoosing(true) : cart.setQty(product, n))} small={compact} max={portions ? 99 : cart.maxQtyOf(product)} />
+        {chooser}
+      </>
+    );
+  }
   const add = e => {
+    if (portions) { setChoosing(true); return; }
     const photo = e.currentTarget.closest('.dish, .tile, .dish-sheet')?.querySelector('img');
     flyToCart(photo);
     cart.add(product);
   };
   return (
-    <button type="button" className={`add-btn${wide ? ' add-btn--wide' : ''}${compact ? ' add-btn--sm' : ''}`} onClick={add} aria-label={`Add ${product.name} to cart`}>
-      Add <span aria-hidden="true">+</span>
-    </button>
+    <>
+      <button type="button" className={`add-btn${wide ? ' add-btn--wide' : ''}${compact ? ' add-btn--sm' : ''}${portions ? ' add-btn--choose' : ''}`} onClick={add} aria-label={portions ? `Add ${product.name}: choose half or full plate` : `Add ${product.name} to cart`} aria-haspopup={portions ? 'dialog' : undefined}>
+        Add <span aria-hidden="true">+</span>
+        {portions && <small>Half / Full</small>}
+      </button>
+      {chooser}
+    </>
   );
 }
 
-export function Price({ price, mrp }) {
+// The two portions of a dish that has a half plate, each with its own Add / quantity.
+function PortionRows({ product }) {
+  const cart = useCart();
+  const portions = [
+    { key: 'half', label: 'Half plate', price: product.halfPrice },
+    { key: 'full', label: 'Full plate', price: product.price, mrp: product.mrp },
+  ];
+  return (
+    <ul className="portions">
+      {portions.map(o => {
+        const qty = cart.qtyOf(product._id, o.key);
+        return (
+          <li key={o.key} className={`portion${qty ? ' is-on' : ''}`}>
+            <span className="portion__text"><b>{o.label}</b><Price price={o.price} mrp={o.mrp} /></span>
+            {qty
+              ? <Stepper small qty={qty} label={`${o.label}, ${product.name}`} onChange={n => cart.setQty(product, n, o.key)} />
+              : <button type="button" className="add-btn add-btn--sm" onClick={() => cart.add(product, o.key)} aria-label={`Add a ${o.label.toLowerCase()} of ${product.name}`}>Add <span aria-hidden="true">+</span></button>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function PortionPicker({ product, onClose }) {
+  const cart = useCart();
+  const qty = cart.qtyOf(product._id);
+  return (
+    <Modal onClose={onClose} label={`${product.name}: half or full plate`} className="portion-sheet">
+      <div className="portion-sheet__head"><VegMark veg={product.isVeg} /><h2>{product.name}</h2></div>
+      <p className="portion-sheet__hint">Choose your portion</p>
+      <PortionRows product={product} />
+      <button type="button" className="btn btn--red btn--block" onClick={onClose}>{qty ? `Done · ${qty} in cart` : 'Done'}</button>
+    </Modal>
+  );
+}
+
+// `half`: the half-plate price, shown under the (full plate) price.
+export function Price({ price, mrp, half }) {
   return (
     <span className="price">
       <b>{money(price)}</b>
       {mrp > price && <s>{money(mrp)}</s>}
       {mrp > price && <small>{Math.round(((mrp - price) / mrp) * 100)}% off</small>}
+      {half > 0 && <span className="price__half">Half {money(half)}</span>}
     </span>
   );
 }
@@ -78,7 +133,7 @@ function DishSheet({ product, onClose }) {
           {product.heading && <span className="dish__tag">{product.heading}</span>}
         </div>
         <h2>{product.name}</h2>
-        <Price price={product.price} mrp={product.mrp} />
+        <Price price={product.price} mrp={product.mrp} half={hasHalfPlate(product) ? product.halfPrice : null} />
         {product.type === 'combo' && product.comboItems?.length > 0 && (
           <div className="dish-sheet__combo">
             <b>In this combo</b>
@@ -87,8 +142,9 @@ function DishSheet({ product, onClose }) {
         )}
         {product.description && <p className="dish-sheet__desc">{product.description}</p>}
         {product.prepTimeMins && <p className="dish-sheet__time"><Clock /> Freshly made in about {product.prepTimeMins} min</p>}
+        {hasHalfPlate(product) && product.isAvailable && <PortionRows product={product} />}
         <div className="dish-sheet__cta">
-          <AddButton product={product} wide />
+          {!(hasHalfPlate(product) && product.isAvailable) && <AddButton product={product} wide />}
           {qty > 0 && <Link to="/checkout" className="btn btn--red" onClick={onClose}>View cart · {money(cart.itemTotal)}</Link>}
         </div>
       </div>
@@ -116,7 +172,7 @@ export default function DishCard({ product, index = 0, variant }) {
         {product.type === 'combo' && product.comboItems?.length > 0 && <p className="dish__combo">{comboLine(product.comboItems)}</p>}
         {product.description && <p>{product.description}</p>}
         <div className="dish__foot">
-          <Price price={product.price} mrp={product.mrp} />
+          <Price price={product.price} mrp={product.mrp} half={hasHalfPlate(product) ? product.halfPrice : null} />
           <AddButton product={product} />
         </div>
       </div>
@@ -141,7 +197,7 @@ export function DishTile({ product }) {
           <span>{product.name}</span><ChevronRight />
         </button>
         <div className="tile__foot">
-          <b className="tile__price">{money(product.price)}</b>
+          <b className="tile__price">{hasHalfPlate(product) ? <>{money(product.halfPrice)}<small> onwards</small></> : money(product.price)}</b>
           <AddButton product={product} compact />
         </div>
       </div>

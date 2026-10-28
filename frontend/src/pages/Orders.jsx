@@ -29,7 +29,9 @@ export function useReorder() {
     let missing = 0;
     for (const item of order.items.filter(i => !i.free)) {
       const p = byId.get(item.productId);
-      if (p?.isAvailable) { cart.setQty(p, cart.qtyOf(p._id) + item.qty); added++; } else missing++;
+      // Half plates come back as half plates (if the dish still has one); everything else as it was.
+      const portion = item.portion === 'half' && p?.halfPrice > 0 ? 'half' : p?.halfPrice > 0 ? 'full' : undefined;
+      if (p?.isAvailable) { cart.setQty(p, cart.qtyOf(p._id, portion) + item.qty, portion); added++; } else missing++;
     }
     if (!added) { toast('Those dishes aren’t available right now.', 'error'); return; }
     if (missing) toast(`${missing} dish${missing > 1 ? 'es aren’t' : ' isn’t'} available right now, so we left ${missing > 1 ? 'them' : 'it'} out.`);

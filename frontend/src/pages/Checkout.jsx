@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../state/auth.jsx';
-import { useCart } from '../state/cart.jsx';
+import { useCart, keyOf } from '../state/cart.jsx';
 import { useToast } from '../state/toast.jsx';
 import { useMenu, useConfig } from '../state/menu.js';
 import { payWithRazorpay } from '../lib/razorpay.js';
@@ -33,11 +33,14 @@ const Plus = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14
 const Pencil = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4" /></svg>;
 
 // Re-prices the cart on the server whenever the cart, coupon, wallet choice or customer changes.
+// What the server is sent for each cart line (half plates say so).
+const orderItems = lines => lines.map(l => ({ productId: l.productId, qty: l.qty, ...(l.portion === 'half' && { portion: 'half' }) }));
+
 function useQuote(cart, useWallet, customerId) {
   const [quote, setQuote] = useState(null);
   const [error, setError] = useState(null);
   const seq = useRef(0);
-  const items = cart.lines.map(l => ({ productId: l.productId, qty: l.qty }));
+  const items = orderItems(cart.lines);
   const key = JSON.stringify([items, cart.coupon, useWallet, customerId]);
 
   const refresh = () => {
@@ -251,7 +254,7 @@ export default function Checkout() {
     if (!who.phone && !phoneOk) { setPlaceError('Add a 10-digit mobile number for delivery.'); phoneInput.current?.focus(); return; }
     setPlacing(true);
     const orderBody = {
-      items: cart.lines.map(l => ({ productId: l.productId, qty: l.qty })),
+      items: orderItems(cart.lines),
       addressId, couponCode: cart.coupon, useWallet, expectedTotal: quote?.total,
       note: [note.trim(), noCutlery && 'No cutlery please'].filter(Boolean).join(' · ').slice(0, 200),
       ...(!who.phone && { deliveryPhone: deliveryPhone.replace(/\D/g, '') }),
@@ -327,13 +330,13 @@ export default function Checkout() {
         <section className="co-card">
           <ul className="co-items">
             {cart.lines.map(l => {
-              const gone = quote?.unavailable.some(u => u.productId === l.productId);
+              const gone = quote?.unavailable.some(u => u.productId === l.productId && (u.portion === 'half') === (l.portion === 'half'));
               return (
-                <li key={l.productId} className={`co-item${gone ? ' is-gone' : ''}`}>
+                <li key={keyOf(l)} className={`co-item${gone ? ' is-gone' : ''}`}>
                   <span className="co-item__name"><VegMark veg={l.isVeg} /><span>{l.name}{gone && <small>No longer available</small>}</span></span>
                   {gone
-                    ? <button type="button" className="link" onClick={() => cart.setQty(l.productId, 0)}>Remove</button>
-                    : <Stepper small qty={l.qty} label={l.name} onChange={n => cart.setQty(l.productId, n)} max={cart.maxQtyOf(l)} />}
+                    ? <button type="button" className="link" onClick={() => cart.setQty(keyOf(l), 0)}>Remove</button>
+                    : <Stepper small qty={l.qty} label={l.name} onChange={n => cart.setQty(keyOf(l), n)} max={cart.maxQtyOf(l)} />}
                   <span className="co-item__price">{money(l.price * l.qty)}</span>
                 </li>
               );

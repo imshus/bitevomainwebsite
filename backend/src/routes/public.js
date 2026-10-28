@@ -70,6 +70,7 @@ const publicProduct = p => ({
   category: p.category,
   price: p.price,
   mrp: p.mrp ?? null,
+  halfPrice: p.type !== 'combo' && p.halfPrice > 0 ? p.halfPrice : null, // set = choose a half or full plate
   isVeg: Boolean(p.isVeg),
   description: p.description || '',
   prepTimeMins: p.prepTimeMins || null,
