@@ -98,14 +98,18 @@ export async function quote({ items, couponCode, useWallet }, customer) {
   const itemTotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const { offers } = config;
 
-  // Free delivery on the first few orders (cancelled ones don't count), then the delivery fee.
+  // Delivery: free on every order when the fee is 0. Otherwise free on the first few orders (cancelled ones
+  // don't count), then the delivery fee.
   const pastOrders = customer ? await store.count('orders', { customerId: customer._id, status: { $ne: 'cancelled' } }) : 0;
   const firstOrder = pastOrders === 0;
-  const freeLeft = Math.max(0, config.freeDeliveryOrders - pastOrders); // including this order
-  const deliveryFee = itemTotal === 0 || freeLeft > 0 ? 0 : config.deliveryFee;
-  const deliveryNote = freeLeft > 0
-    ? (customer ? `Free delivery: your ${ordinal(pastOrders + 1)} of ${config.freeDeliveryOrders} free deliveries` : `Free delivery on your first ${config.freeDeliveryOrders} orders`)
-    : config.freeDeliveryOrders > 0 ? `${money(config.deliveryFee)} delivery after your first ${config.freeDeliveryOrders} orders` : null;
+  const alwaysFree = !(config.deliveryFee > 0);
+  const freeLeft = alwaysFree ? 0 : Math.max(0, config.freeDeliveryOrders - pastOrders); // including this order
+  const freeNow = alwaysFree || freeLeft > 0;
+  const deliveryFee = itemTotal === 0 || freeNow ? 0 : config.deliveryFee;
+  const deliveryNote = alwaysFree ? 'Free delivery on every order'
+    : freeLeft > 0
+      ? (customer ? `Free delivery: your ${ordinal(pastOrders + 1)} of ${config.freeDeliveryOrders} free deliveries` : `Free delivery on your first ${config.freeDeliveryOrders} orders`)
+      : config.freeDeliveryOrders > 0 ? `${money(config.deliveryFee)} delivery after your first ${config.freeDeliveryOrders} orders` : null;
 
   // One ₹1 store item per order, once the other items reach storeUnlockAt.
   const storeQty = lines.filter(l => l.store).reduce((s, l) => s + l.qty, 0);
@@ -170,13 +174,13 @@ export async function quote({ items, couponCode, useWallet }, customer) {
     freeDeliveryAbove: null, // dropped: delivery is free on the first orders instead (see freeDelivery)
     // The "Order more, save more" offers on this bill:
     firstOrder,
-    freeDelivery: { orders: config.freeDeliveryOrders, left: freeLeft, applied: freeLeft > 0 && itemTotal > 0 },
+    freeDelivery: { orders: alwaysFree ? null : config.freeDeliveryOrders, left: freeLeft, always: alwaysFree, applied: freeNow && itemTotal > 0 },
     deliveryNote,
     freeCoffee: coffee ? { name: coffee.name, value: coffee.price } : null,
     storeItem: unlockAt > 0 ? { unlockAt, otherItemsTotal, moreNeeded: Math.max(0, unlockAt - otherItemsTotal), unlocked: otherItemsTotal >= unlockAt, inCart: storeQty, error: storeError } : null,
     deliveryCashback,
     offers: [
-      freeLeft > 0 && itemTotal > 0 && { key: 'free_delivery', text: deliveryNote },
+      freeNow && itemTotal > 0 && { key: 'free_delivery', text: deliveryNote },
       coffee && { key: 'first_order_coffee', text: `Free ${coffee.name} on your first order` },
       deliveryCashback > 0 && { key: 'delivery_cashback', text: `${money(deliveryCashback)} cashback to your wallet after delivery` },
     ].filter(Boolean),

@@ -185,7 +185,7 @@ export default function Menu() {
 
           {config && (
             <p className="menu-note">
-              {config.freeDeliveryOrders > 0 ? `Free delivery on your first ${config.freeDeliveryOrders} orders, then ${money(config.deliveryFee)}.` : `Delivery ${money(config.deliveryFee)}.`} Photos are for illustration.
+              {!(config.deliveryFee > 0) ? 'Free delivery on every order.' : config.freeDeliveryOrders > 0 ? `Free delivery on your first ${config.freeDeliveryOrders} orders, then ${money(config.deliveryFee)}.` : `Delivery ${money(config.deliveryFee)}.`} Photos are for illustration.
             </p>
           )}
         </div>

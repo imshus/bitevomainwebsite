@@ -15,7 +15,7 @@ const BANNERS = [
   },
   {
     file: 'offer-rewards',
-    alt: 'Order more, save more: ₹20 signup bonus, ₹10 cashback on delivery and ₹100 referral cashback in wallet coins, free delivery on your first 3 orders, a free cold coffee on orders of ₹99+ and a ₹1 store item on orders of ₹399+.',
+    alt: 'Order more, save more: ₹20 signup bonus, ₹20 cashback on delivery and ₹100 referral cashback in wallet coins, free delivery on every order, a free cold coffee on orders of ₹99+ and a ₹1 store item on orders of ₹399+.',
   },
 ];
 

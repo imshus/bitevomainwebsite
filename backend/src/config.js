@@ -48,15 +48,15 @@ export const config = {
   uploadApiKey: (process.env.UPLOAD_API_KEY || '').trim(),
   // Prefix for menu photos the admin panel uploaded (stored as /uploads/<file>).
   adminPublicUrl: (process.env.ADMIN_PUBLIC_URL || '').replace(/\/$/, ''),
-  // Delivery is free on each customer's first FREE_DELIVERY_ORDERS orders (cancelled ones don't count),
-  // then DELIVERY_FEE on every order.
-  deliveryFee: num(process.env.DELIVERY_FEE, 20),
+  // Delivery fee (₹). 0 = free delivery on every order. Above 0: free on each customer's first
+  // FREE_DELIVERY_ORDERS orders (cancelled ones don't count), then DELIVERY_FEE on every order.
+  deliveryFee: num(process.env.DELIVERY_FEE, 0),
   freeDeliveryOrders: Math.max(0, num(process.env.FREE_DELIVERY_ORDERS, 3)),
   minOrderValue: num(process.env.MIN_ORDER_VALUE, 99),
   // The "Order more, save more" offers (see lib/offers.js). 0 switches one off.
   offers: {
     signupBonus: num(process.env.SIGNUP_BONUS, 20), // wallet coins for every new account
-    deliveryCashback: num(process.env.DELIVERY_CASHBACK, 10), // wallet coins for every delivered order
+    deliveryCashback: num(process.env.DELIVERY_CASHBACK, 20), // wallet coins for every delivered order
     freeCoffeeFrom: num(process.env.FREE_COFFEE_FROM, 99), // first order of at least this much gets a free Cold Coffee
     storeUnlockAt: num(process.env.STORE_UNLOCK_AT, 399), // other items needed before one ₹1 store item can be added
   },
