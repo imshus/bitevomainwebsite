@@ -123,7 +123,7 @@ export async function quote({ items, couponCode, useWallet }, customer) {
   let couponError = null;
   let discount = 0;
   let cashback = 0;
-  const code = String(couponCode || '').trim().toUpperCase();
+  const code = String(couponCode || '').replace(/\s+/g, '').toUpperCase(); // phone keyboards add spaces
   if (code && lines.length) {
     const found = /^[A-Z0-9]{3,20}$/.test(code) ? await store.findOne('coupons', { code }) : null;
     couponError = await couponProblem(found, itemTotal, customer);

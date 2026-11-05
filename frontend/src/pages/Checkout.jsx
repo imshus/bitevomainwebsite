@@ -223,7 +223,7 @@ export default function Checkout() {
   }
 
   const applyCode = c => {
-    const value = (c ?? code).trim().toUpperCase();
+    const value = (c ?? code).replace(/\s+/g, '').toUpperCase();
     if (!value) return;
     if (!signedIn) {
       requireLogin('Sign in to use offers on your order.').then(who => {
@@ -382,7 +382,12 @@ export default function Checkout() {
             ) : (
               <form className="coupon__form" onSubmit={e => { e.preventDefault(); applyCode(); }}>
                 <Tag />
-                <input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="Offer code" maxLength={20} aria-label="Offer code" />
+                {/* Shown in capitals by CSS and made upper-case on Apply: rewriting the text while it's typed
+                    makes Android keyboards repeat letters, so the code never matched. */}
+                <input
+                  value={code} onChange={e => setCode(e.target.value)} placeholder="Offer code" maxLength={24} aria-label="Offer code"
+                  autoCapitalize="characters" autoCorrect="off" autoComplete="off" spellCheck={false} enterKeyHint="done"
+                />
                 <button className="link" disabled={!code.trim()}>Apply</button>
               </form>
             )}
@@ -460,7 +465,6 @@ export default function Checkout() {
                 <dt>Delivery fee</dt>
                 <dd>{quote.deliveryFee ? money(quote.deliveryFee) : <span className="co-free">FREE</span>}</dd>
               </div>
-              {quote.deliveryNote && <p className="co-bill__hint">{quote.deliveryNote}</p>}
               {quote.discount > 0 && <div className="is-save"><dt>{quote.coupon?.code ? `Offer (${quote.coupon.code})` : 'Offers applied'}</dt><dd>−{money(quote.discount)}</dd></div>}
               {quote.walletUsed > 0 && <div className="is-save"><dt>From wallet</dt><dd>−{money(quote.walletUsed)}</dd></div>}
             </dl>

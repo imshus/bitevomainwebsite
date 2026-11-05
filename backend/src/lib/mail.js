@@ -87,7 +87,7 @@ export function orderEmail(customer, order) {
   const rows = order.items.map(i => `<tr><td style="padding:6px 0;font-size:14px;color:#333">${esc(i.qty)} × ${esc(i.name)}</td><td align="right" style="padding:6px 0;font-size:14px;color:#333">${money(i.price * i.qty)}</td></tr>`).join('');
   const line = (label, value, bold) => `<tr><td style="padding:4px 0;font-size:14px;color:${bold ? '#1A1A1A' : '#666'};${bold ? 'font-weight:bold' : ''}">${label}</td><td align="right" style="padding:4px 0;font-size:14px;${bold ? 'font-weight:bold' : 'color:#666'}">${value}</td></tr>`;
   const a = order.address || {};
-  const address = [a.line1, a.line2, a.landmark && `Near ${a.landmark}`, a.zone, a.pincode].filter(Boolean).map(esc).join(', ');
+  const address = [a.line1, a.line2, a.landmark && `Near ${a.landmark}`, a.pincode].filter(Boolean).map(esc).join(', ');
   const pay = order.paymentMethod === 'Wallet' ? 'Paid from your BiteVo wallet' : order.walletUsed > 0 ? `${money(order.walletUsed)} from your wallet, the rest in cash on delivery` : 'Cash on delivery';
   return {
     to: customer.email,

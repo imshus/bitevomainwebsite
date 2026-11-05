@@ -43,7 +43,7 @@ export const LIVE_STATUSES = ['placed', 'preparing', 'out_for_delivery'];
 
 export const itemsSummary = items => items.map(i => `${i.qty} × ${i.name}`).join(', ');
 
-export const addressLine = a => [a.line1, a.line2, a.landmark && `Near ${a.landmark}`, a.zone, a.pincode].filter(Boolean).join(', ');
+export const addressLine = a => [a.line1, a.line2, a.landmark && `Near ${a.landmark}`, a.pincode].filter(Boolean).join(', ');
 
 // What an offer gives, in a few words.
 export function offerHeadline(o) {

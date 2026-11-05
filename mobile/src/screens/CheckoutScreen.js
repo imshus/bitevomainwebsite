@@ -87,7 +87,7 @@ export default function CheckoutScreen({ navigation }) {
   }
 
   const applyCode = c => {
-    const value = (c ?? code).trim().toUpperCase();
+    const value = (c ?? code).replace(/\s+/g, '').toUpperCase();
     if (!value) return;
     if (!signedIn) { navigation.navigate('SignIn'); return; }
     cart.setCoupon(value);
@@ -151,14 +151,22 @@ export default function CheckoutScreen({ navigation }) {
         <Card style={{ gap: 10 }}>
           <View style={st.cardHead}><Tag size={20} color={C.red} /><Text style={st.cardTitle}>Offers & benefits</Text></View>
           {(quote?.offers || []).map(o => <Text key={o.key} style={st.perk}>✓ {o.text}</Text>)}
-          {quote?.coupon?.code ? (
-            <View style={st.applied}>
-              <Text style={st.appliedText}>{quote.coupon.code} applied{quote.discount > 0 ? ` · you save ${money(quote.discount)}` : ''}</Text>
+          {/* A code that didn't work stays on the cart (and blocks the order), so it always gets a Remove. */}
+          {cart.coupon ? (
+            <View style={[st.applied, quote?.couponError && st.appliedBad]}>
+              <Text style={[st.appliedText, quote?.couponError && st.appliedTextBad]}>
+                {quote?.coupon?.code ? `${quote.coupon.code} applied${quote.discount > 0 ? ` · you save ${money(quote.discount)}` : ''}` : cart.coupon}
+              </Text>
               <Pressable onPress={() => cart.setCoupon('')}><Text style={st.link}>Remove</Text></Pressable>
             </View>
           ) : (
             <View style={st.codeRow}>
-              <TextInput value={code} onChangeText={v => setCode(v.toUpperCase())} placeholder="Enter a coupon code" placeholderTextColor={C.faint} autoCapitalize="characters" style={[st.input, { flex: 1 }]} />
+              {/* Not changed to capitals while typing: rewriting the text makes Android keyboards repeat letters. */}
+              <TextInput
+                value={code} onChangeText={setCode} placeholder="Enter a coupon code" placeholderTextColor={C.faint}
+                autoCapitalize="characters" autoCorrect={false} autoComplete="off" spellCheck={false}
+                returnKeyType="done" onSubmitEditing={() => applyCode()} style={[st.input, { flex: 1 }]}
+              />
               <Button title="Apply" small kind="outline" onPress={() => applyCode()} disabled={!code.trim()} />
             </View>
           )}
@@ -218,7 +226,6 @@ export default function CheckoutScreen({ navigation }) {
             <View style={st.cardHead}><Receipt size={20} color={C.red} /><Text style={st.cardTitle}>Bill details</Text></View>
             <View style={st.billRow}><Text style={st.billLabel}>Item total</Text><Text style={st.billValue}>{money(quote.subtotal)}</Text></View>
             <View style={st.billRow}><Text style={st.billLabel}>Delivery fee</Text><Text style={[st.billValue, !quote.deliveryFee && { color: C.green }]}>{quote.deliveryFee ? money(quote.deliveryFee) : 'FREE'}</Text></View>
-            {quote.deliveryNote ? <Text style={st.hint}>{quote.deliveryNote}</Text> : null}
             {quote.discount > 0 && <View style={st.billRow}><Text style={[st.billLabel, { color: C.green }]}>{quote.coupon?.code ? `Offer (${quote.coupon.code})` : 'Offers applied'}</Text><Text style={[st.billValue, { color: C.green }]}>−{money(quote.discount)}</Text></View>}
             {quote.walletUsed > 0 && <View style={st.billRow}><Text style={[st.billLabel, { color: C.green }]}>From wallet</Text><Text style={[st.billValue, { color: C.green }]}>−{money(quote.walletUsed)}</Text></View>}
             <View style={[st.billRow, st.total]}><Text style={st.totalText}>To pay</Text><Text style={st.totalText}>{money(quote.payable)}</Text></View>
@@ -264,6 +271,8 @@ const st = StyleSheet.create({
   perk: { color: C.green, fontSize: 13.5, fontWeight: '600' },
   applied: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.greenSoft, borderRadius: 10, padding: 10 },
   appliedText: { color: C.green, fontWeight: '700', flex: 1 },
+  appliedBad: { backgroundColor: C.redSoft },
+  appliedTextBad: { color: C.ink },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   offer: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: '#E5B8B8', borderRadius: 10, padding: 10 },
   offerHead: { fontWeight: '800', color: C.ink, fontSize: 14 },
@@ -278,7 +287,6 @@ const st = StyleSheet.create({
   billRow: { flexDirection: 'row', justifyContent: 'space-between' },
   billLabel: { color: C.ink, fontSize: 14 },
   billValue: { color: C.ink, fontSize: 14, fontWeight: '600' },
-  hint: { color: C.muted, fontSize: 12.5 },
   total: { borderTopWidth: 1, borderTopColor: C.line, paddingTop: 10, marginTop: 4 },
   totalText: { fontSize: 17, fontWeight: '800', color: C.ink },
   cashback: { color: C.green, fontSize: 13, fontWeight: '600' },

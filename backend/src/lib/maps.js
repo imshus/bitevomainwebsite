@@ -4,7 +4,6 @@
 // Every answer is turned into one small address shape the website uses, with a delivery check.
 import { config } from '../config.js';
 import { HttpError } from './http.js';
-import { getSettings } from './settings.js';
 import { areaCheck } from './deliveryArea.js';
 
 const PLACES = 'https://places.googleapis.com/v1';
@@ -69,22 +68,13 @@ export function deliveryCheck(place) {
   return { deliverable, distanceKm: km, radiusKm, message: deliverable ? null : `Service unavailable at this location: it’s ${km} km from our kitchen, and we deliver up to ${radiusKm} km away.` };
 }
 
-// Picks the admin panel's delivery zone whose name matches the place's area or city, if any.
-async function suggestZone(names) {
-  const { zones } = await getSettings();
-  const wanted = names.filter(Boolean).map(n => n.toLowerCase());
-  return zones.find(z => wanted.includes(z.toLowerCase()))
-    || zones.find(z => wanted.some(n => n.length > 3 && (z.toLowerCase().includes(n) || n.includes(z.toLowerCase()))))
-    || '';
-}
-
 // Places (New) and Geocoding name their address parts differently; both become { long, short, types }.
 const parts = list => (list || []).map(c => ({ long: c.longText ?? c.long_name, short: c.shortText ?? c.short_name, types: c.types || [] }));
 const pick = (list, ...types) => types.map(t => list.find(c => c.types.includes(t))?.long).find(Boolean) || '';
 const PLUS_CODE = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3},?\s*/;
 const tidy = s => (s || '').replace(PLUS_CODE, '').replace(/,\s*India$/, '').trim();
 
-async function shape({ components, lat, lng, formatted, name = '' }) {
+function shape({ components, lat, lng, formatted, name = '' }) {
   const c = parts(components);
   const area = pick(c, 'sublocality_level_1', 'neighborhood', 'sublocality', 'sublocality_level_2', 'locality');
   const city = pick(c, 'locality', 'administrative_area_level_3', 'administrative_area_level_2');
@@ -103,7 +93,6 @@ async function shape({ components, lat, lng, formatted, name = '' }) {
   // A named place (a PG, office or society) leads the address line, as people would write it.
   if (place.name && !place.formatted.toLowerCase().includes(place.name.toLowerCase())) place.formatted = `${place.name}, ${place.formatted}`;
   place.line2 = [area, city !== area && city].filter(Boolean).join(', ');
-  place.zone = await suggestZone([area, pick(c, 'sublocality_level_2'), pick(c, 'neighborhood'), city]);
   place.check = deliveryCheck(place);
   return place;
 }
@@ -148,7 +137,7 @@ export async function placeDetails(placeId, { session } = {}) {
     },
   });
   if (!p.location) throw new HttpError(404, 'We couldn’t find that place. Try another search.');
-  return placeCache.set(placeId, await shape({
+  return placeCache.set(placeId, shape({
     components: p.addressComponents,
     lat: p.location.latitude,
     lng: p.location.longitude,
@@ -167,5 +156,5 @@ export async function addressAt(lat, lng) {
   const best = results.find(r => !r.types?.includes('plus_code')) || results[0];
   if (!best) throw new HttpError(404, 'We couldn’t find an address there. Move the pin a little and try again.');
   // The pin stays exactly where the customer put it; only the address text comes from Google.
-  return pinCache.set(key, await shape({ components: best.address_components, lat, lng, formatted: best.formatted_address }));
+  return pinCache.set(key, shape({ components: best.address_components, lat, lng, formatted: best.formatted_address }));
 }

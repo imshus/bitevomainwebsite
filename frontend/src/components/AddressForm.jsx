@@ -1,6 +1,7 @@
 // Add or edit a delivery address. With Google Maps set up, the customer first finds the place (search
-// or GPS) and sets the pin on a map, then adds the flat/house details; area, pincode and delivery zone
-// are filled in from the map. Without Maps it's a plain form. Zones are the ones set in the admin panel.
+// or GPS) and sets the pin on a map, then adds the flat/house details; area and pincode are filled in from
+// the map. Without Maps it's a plain form. There's no delivery zone to pick: the server checks the address
+// is in a delivery area (sector and city).
 import { useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../state/auth.jsx';
@@ -19,7 +20,10 @@ export default function AddressForm({ address, startPlace, onClose, onSaved }) {
   const { setCustomer } = useAuth();
   const { data: config } = useConfig();
   const maps = Boolean(config?.maps);
-  const [form, setForm] = useState(() => ({ label: 'Home', line1: '', line2: '', landmark: '', zone: '', pincode: '', ...address }));
+  const [form, setForm] = useState(() => {
+    const { zone: _, ...saved } = address || {}; // older addresses have a zone; it's no longer used
+    return { label: 'Home', line1: '', line2: '', landmark: '', pincode: '', ...saved };
+  });
   const [place, setPlace] = useState(() => pinOf(address));
   const [step, setStep] = useState(() => (!maps || address?._id ? 'details' : startPlace ? 'map' : 'search'));
   const [pinStart, setPinStart] = useState(startPlace || null);
@@ -29,7 +33,7 @@ export default function AddressForm({ address, startPlace, onClose, onSaved }) {
 
   const pinned = p => {
     setPlace(p);
-    setForm(f => ({ ...f, line2: streetLine(p) || f.line2, pincode: p.pincode || f.pincode, zone: p.zone || f.zone }));
+    setForm(f => ({ ...f, line2: streetLine(p) || f.line2, pincode: p.pincode || f.pincode }));
     setStep('details');
   };
   const movePin = () => {
@@ -83,8 +87,9 @@ export default function AddressForm({ address, startPlace, onClose, onSaved }) {
             <input value={form.line1} onChange={set('line1')} autoComplete="address-line1" maxLength={120} required autoFocus={Boolean(place) && !form.line1} placeholder={place ? 'e.g. Flat 302, 3rd floor' : undefined} />
           </label>
           <label className="field">
-            <span>{place ? 'Building, street, area' : <>Area / locality <i>(optional)</i></>}</span>
-            <input value={form.line2} onChange={set('line2')} autoComplete="address-line2" maxLength={120} />
+            {/* Typed by hand, this line must name the sector and city for the delivery-area check. */}
+            <span>{place ? 'Building, street, area' : 'Sector and city'}</span>
+            <input value={form.line2} onChange={set('line2')} autoComplete="address-line2" maxLength={120} required={!place} placeholder={place ? undefined : 'e.g. Sector 44, Gurugram'} />
           </label>
           <div className="field-row">
             <label className="field">
@@ -96,13 +101,6 @@ export default function AddressForm({ address, startPlace, onClose, onSaved }) {
               <input value={form.pincode} onChange={e => setForm(f => ({ ...f, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))} inputMode="numeric" autoComplete="postal-code" />
             </label>
           </div>
-          <label className="field">
-            <span>Delivery zone</span>
-            <select value={form.zone} onChange={set('zone')} required>
-              <option value="" disabled>Pick your zone</option>
-              {(config?.zones || []).map(z => <option key={z}>{z}</option>)}
-            </select>
-          </label>
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="btn btn--red btn--block" disabled={busy}>{busy ? 'Saving…' : 'Save address'}</button>
         </form>

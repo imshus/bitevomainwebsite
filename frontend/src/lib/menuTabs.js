@@ -2,14 +2,14 @@
 // admin panel already stores (price, type, category, name), so no new admin settings are needed:
 //   ₹1 Store  - dishes priced ₹1 (or in a category named like "₹1 Store")
 //   Combo     - combo dishes (or a category named "Combo…")
-//   Drinks    - the Drinks category, plus shakes, coffee, lassi and the like from other categories
+//   Fastfood & Drinks - the Drinks category, plus shakes, coffee, lassi and the like from other categories
 //   Food & Meals - everything else
 
 export const TABS = [
   { key: 'all', label: 'All', title: 'All dishes' },
   { key: 'store', label: '1 Item', title: '₹1 Store', icon: '/assets/menu/icon-store.webp' },
   { key: 'meals', label: 'Food & Meals', title: 'Food and Meals', icon: '/assets/menu/icon-meals.webp' },
-  { key: 'drinks', label: 'Drinks', title: 'Drinks', icon: '/assets/menu/icon-drinks.webp' },
+  { key: 'drinks', label: 'Fastfood & Drinks', title: 'Fastfood & Drinks', icon: '/assets/menu/icon-drinks.webp' },
   { key: 'combo', label: 'Combo', title: 'Combos', icon: '/assets/menu/icon-combo.webp' },
 ];
 export const TAB_KEYS = TABS.map(t => t.key);

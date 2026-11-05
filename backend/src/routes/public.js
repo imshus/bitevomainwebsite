@@ -22,7 +22,8 @@ const currentSettings = keptFor(FRESH_MS, getSettings);
 router.get('/config', async (req, res) => {
   const { zones } = await currentSettings();
   res.json({
-    zones,
+    zones, // no longer asked for on addresses; kept because older app versions still read it
+
     deliveryFee: config.deliveryFee,
     freeDeliveryOrders: config.deliveryFee > 0 ? config.freeDeliveryOrders : 0, // delivery is free on each customer's first orders (0 = always free, or never)
     freeDeliveryAbove: null, // dropped (kept so older pages don't break)

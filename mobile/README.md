@@ -5,7 +5,7 @@ The BiteVo app, built with React Native (no Expo). It uses the same backend as t
 
 What it does (first version):
 
-- Menu: offer banners, the five tabs (All, 1 Item, Food & Meals, Drinks, Combo), search, veg only,
+- Menu: offer banners, the five tabs (All, 1 Item, Food & Meals, Fastfood & Drinks, Combo), search, veg only,
   two dishes per row inside a tab, dish details, and the red cart bar.
 - Sign in with a mobile number (WhatsApp/SMS code) or email code; name and referral code for new accounts.
 - Delivery addresses, with "Service unavailable" outside the delivery area (Sector 40, 44 and 45 in

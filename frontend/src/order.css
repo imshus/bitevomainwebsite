@@ -303,7 +303,8 @@ button.btn { font-family: inherit; cursor: pointer; }
 .coupon__form svg, .coupon__applied svg { width: 20px; height: 20px; stroke: var(--red); stroke-width: 2; fill: none; stroke-linejoin: round; }
 .coupon__form { display: flex; align-items: center; gap: 10px; border: 1.5px solid #EAD6D6; border-radius: 12px; padding: 0 14px; }
 .coupon__form:focus-within { border-color: var(--red); }
-.coupon__form input { flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 15px; font-weight: 600; letter-spacing: .06em; padding: 11px 0; background: none; }
+.coupon__form input { flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 15px; font-weight: 600; letter-spacing: .06em; padding: 11px 0; background: none; text-transform: uppercase; }
+.coupon__form input::placeholder { text-transform: none; }
 .coupon__applied { display: flex; align-items: center; gap: 12px; background: var(--green-soft); border-radius: 12px; padding: 10px 12px; }
 .coupon__applied svg { stroke: var(--green); }
 .coupon__applied div { flex: 1; display: flex; flex-direction: column; line-height: 1.35; }

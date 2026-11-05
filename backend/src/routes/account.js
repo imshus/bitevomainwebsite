@@ -4,7 +4,6 @@ import { store } from '../db/index.js';
 import { config } from '../config.js';
 import { objectId } from '../lib/ids.js';
 import { badRequest, conflict, notFound, nowIso, text } from '../lib/http.js';
-import { getSettings } from '../lib/settings.js';
 import { deliveryCheck } from '../lib/maps.js';
 import { settleReferrals } from '../lib/referrals.js';
 import { settleOffers } from '../lib/offers.js';
@@ -42,18 +41,17 @@ router.patch('/', async (req, res) => {
 
 // ---- Addresses ------------------------------------------------------------------------
 
-async function cleanAddress(body) {
+// No delivery zone: where we deliver is decided by the address itself (deliveryCheck below). Older app
+// versions still send a `zone`; it's ignored.
+function cleanAddress(body) {
   const a = {
     label: text(body?.label, 20) || 'Home',
     line1: text(body?.line1, 120),
     line2: text(body?.line2, 120),
     landmark: text(body?.landmark, 80),
-    zone: text(body?.zone, 60),
     pincode: text(body?.pincode, 6).replace(/\D/g, ''),
   };
   if (a.line1.length < 5) throw badRequest('Enter your house/flat number and street.');
-  const { zones } = await getSettings();
-  if (!zones.includes(a.zone)) throw badRequest('Pick your delivery area.');
   if (a.pincode && a.pincode.length !== 6) throw badRequest('Pincode must be 6 digits.');
 
   // The map pin, when the address was picked on the map (older and hand-typed addresses have none).
@@ -81,7 +79,7 @@ const requireAddress = (list, id) => {
 };
 
 router.post('/addresses', async (req, res) => {
-  const fields = await cleanAddress(req.body);
+  const fields = cleanAddress(req.body);
   res.status(201).json(await editAddresses(req, list => {
     if (list.length >= MAX_ADDRESSES) throw badRequest(`You can save up to ${MAX_ADDRESSES} addresses. Remove one first.`);
     const address = { _id: objectId(), ...fields };
@@ -90,7 +88,7 @@ router.post('/addresses', async (req, res) => {
 });
 
 router.patch('/addresses/:id', async (req, res) => {
-  const address = { _id: req.params.id, ...(await cleanAddress(req.body)) };
+  const address = { _id: req.params.id, ...cleanAddress(req.body) };
   res.json(await editAddresses(req, list => {
     requireAddress(list, address._id);
     return { list: list.map(a => (a._id === address._id ? address : a)), address };

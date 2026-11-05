@@ -2,14 +2,14 @@
 // exactly one tab, worked out from what the admin panel already stores (price, type, category, name).
 //   ₹1 Store  - dishes priced ₹1 (or in a category named like "₹1 Store")
 //   Combo     - combo dishes (or a category named "Combo…")
-//   Drinks    - the Drinks category, plus shakes, coffee, lassi and the like from other categories
+//   Fastfood & Drinks - the Drinks category, plus shakes, coffee, lassi and the like from other categories
 //   Food & Meals - everything else
 
 export const TABS = [
   { key: 'all', label: 'All', title: 'All dishes' },
   { key: 'store', label: '1 Item', title: '₹1 Store', icon: require('../assets/icon-store.webp') },
   { key: 'meals', label: 'Food & Meals', title: 'Food and Meals', icon: require('../assets/icon-meals.webp') },
-  { key: 'drinks', label: 'Drinks', title: 'Drinks', icon: require('../assets/icon-drinks.webp') },
+  { key: 'drinks', label: 'Fastfood & Drinks', title: 'Fastfood & Drinks', icon: require('../assets/icon-drinks.webp') },
   { key: 'combo', label: 'Combo', title: 'Combos', icon: require('../assets/icon-combo.webp') },
 ];
 // The order the sections follow on the "All" tab.

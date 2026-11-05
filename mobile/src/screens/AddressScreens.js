@@ -64,19 +64,19 @@ export function AddressFormScreen({ navigation, route }) {
   const { setCustomer } = useAuth();
   const { data: config } = useConfig();
   const [, choose] = useChosenAddress();
-  const zones = config?.zones || [];
-  const [form, setForm] = useState(() => ({ label: 'Home', line1: '', line2: '', landmark: '', zone: zones[0] || '', pincode: '', ...editing }));
+  // No delivery zone to pick: the server checks the sector and city are in a delivery area.
+  const [form, setForm] = useState(() => ({ label: 'Home', line1: '', line2: '', landmark: '', pincode: '', ...editing }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const set = field => value => setForm(f => ({ ...f, [field]: value }));
   const served = deliversTo(form, config);
-  const filled = form.line1.trim().length >= 5 && form.line2.trim() && form.zone;
+  const filled = form.line1.trim().length >= 5 && form.line2.trim();
 
   const save = async () => {
     setBusy(true);
     setError('');
     try {
-      const body = { label: form.label, line1: form.line1, line2: form.line2, landmark: form.landmark, zone: form.zone, pincode: form.pincode };
+      const body = { label: form.label, line1: form.line1, line2: form.line2, landmark: form.landmark, pincode: form.pincode };
       const result = editing ? await api.updateAddress(editing._id, body) : await api.addAddress(body);
       setCustomer(result.customer);
       if (result.address?._id) choose(result.address._id);
@@ -102,16 +102,6 @@ export function AddressFormScreen({ navigation, route }) {
       <TextInput value={form.line2} onChangeText={set('line2')} placeholder="e.g. Sector 44, Gurugram" placeholderTextColor={C.faint} style={st.input} maxLength={120} />
       <Text style={st.fieldLabel}>Landmark (optional)</Text>
       <TextInput value={form.landmark} onChangeText={set('landmark')} placeholder="e.g. Near Huda Market" placeholderTextColor={C.faint} style={st.input} maxLength={80} />
-      {zones.length > 0 && (
-        <>
-          <Text style={st.fieldLabel}>Delivery area</Text>
-          <View style={st.chips}>
-            {zones.map(z => (
-              <Pressable key={z} onPress={() => set('zone')(z)} style={[st.chip, form.zone === z && st.chipOn]}><Text style={[st.chipText, form.zone === z && st.chipTextOn]}>{z}</Text></Pressable>
-            ))}
-          </View>
-        </>
-      )}
       <Text style={st.fieldLabel}>Pincode (optional)</Text>
       <TextInput value={form.pincode} onChangeText={v => set('pincode')(v.replace(/\D/g, '').slice(0, 6))} placeholder="122003" placeholderTextColor={C.faint} keyboardType="number-pad" style={st.input} />
       {filled && !served && <Text style={st.off}>Service unavailable at this address. {whereWeDeliver(config)}</Text>}
