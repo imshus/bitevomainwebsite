@@ -130,7 +130,7 @@ export default function MenuScreen({ navigation }) {
       <View style={[st.head, { paddingTop: insets.top + 10 }]}>
         <View style={st.headTop}>
           <View style={st.eta}>
-            {served ? <><Text style={st.etaNum}>{DELIVERY_MINS}</Text><Text style={st.etaUnit}>MINS</Text></> : <><Text style={st.etaNum}>✕</Text><Text style={st.etaUnit}>N/A</Text></>}
+            {served ? <><Text style={[st.etaNum, String(DELIVERY_MINS).includes('–') && st.etaRange]}>{DELIVERY_MINS}</Text><Text style={st.etaUnit}>MINS</Text></> : <><Text style={st.etaNum}>✕</Text><Text style={st.etaUnit}>N/A</Text></>}
           </View>
           <Pressable onPress={pickAddress} style={{ flex: 1 }} accessibilityLabel="Change delivery address">
             {address ? (
@@ -193,6 +193,7 @@ const st = StyleSheet.create({
   headTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   eta: { width: 56, height: 56, borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(255,255,255,.55)', alignItems: 'center', justifyContent: 'center' },
   etaNum: { color: C.white, fontSize: 22, fontWeight: '800', fontStyle: 'italic' },
+  etaRange: { fontSize: 16, letterSpacing: -0.5 }, // "20–25" in the 56-wide box
   etaUnit: { color: C.white, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
   where: { color: 'rgba(255,255,255,.9)', fontSize: 15, lineHeight: 20 },
   whereTag: { color: C.white, fontWeight: '800', fontSize: 15 },

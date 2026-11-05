@@ -23,6 +23,7 @@
 }
 .eta b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 .eta small { margin-top: 3px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.eta--range b { font-size: 18px; letter-spacing: -.04em; }
 .eta--off { font-style: normal; border-color: rgba(255, 255, 255, .4); opacity: .9; }
 .eta--off b { font-size: 22px; }
 
@@ -295,6 +296,7 @@
   .menu-head__top { gap: 10px; }
   .eta { width: 50px; height: 50px; border-radius: 14px; }
   .eta b { font-size: 21px; }
+  .eta--range b { font-size: 15px; }
   .eta small { font-size: 9.5px; }
   .where__text { font-size: 14.5px; line-height: 1.3; }
   .where__text small { font-size: 12px; }

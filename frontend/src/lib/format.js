@@ -31,6 +31,10 @@ export const LIVE_STATUSES = ['placed', 'preparing', 'out_for_delivery'];
 
 export const itemsSummary = items => items.map(i => `${i.qty} × ${i.name}`).join(', ');
 
+// The usual delivery time in minutes, on the menu badge and at checkout: a range ("20–25") or one number,
+// from VITE_DELIVERY_MINS ("20-25" or "30"; default 20-25).
+export const DELIVERY_MINS = String(import.meta.env.VITE_DELIVERY_MINS || '20-25').replace(/\s+/g, '').replace(/-/g, '–');
+
 export const addressLine = a => [a.line1, a.line2, a.landmark && `Near ${a.landmark}`, a.pincode].filter(Boolean).join(', ');
 
 // What an offer gives, in a few words.

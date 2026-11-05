@@ -10,11 +10,11 @@ import { lazyLoad, LazyPart, whenIdle, CANT_OPEN } from '../lib/lazy.js';
 import { useToast } from '../state/toast.jsx';
 import { useConfig } from '../state/menu.js';
 import { deliversTo, whereWeDeliver } from '../lib/deliveryArea.js';
+import { DELIVERY_MINS } from '../lib/format.js';
 import SiteMenu from './SiteMenu.jsx';
 import { Search, Close } from './Icons.jsx';
 
 // The usual delivery time shown in the badge (frontend/.env).
-const DELIVERY_MINS = Number(import.meta.env.VITE_DELIVERY_MINS) || 30;
 const FALLBACK_HINTS = ['Biryani', 'Fries', 'Burger', 'Cold Coffee', 'Paneer Tikka', 'Wraps'];
 
 // The location and address sheets are their own files: the picker is fetched once the menu has settled
@@ -100,7 +100,7 @@ export default function MenuHeader({ query, setQuery, vegOnly, setVegOnly, dishN
         {unserved ? (
           <span className="eta eta--off" title="We don’t deliver to this location yet"><b>✕</b><small>N/A</small></span>
         ) : (
-          <span className="eta" title={`Usually delivered in about ${DELIVERY_MINS} minutes`}>
+          <span className={`eta${DELIVERY_MINS.includes('–') ? ' eta--range' : ''}`} title={`Usually delivered in ${DELIVERY_MINS} minutes`}>
             <b>{DELIVERY_MINS}</b><small>mins</small>
           </span>
         )}

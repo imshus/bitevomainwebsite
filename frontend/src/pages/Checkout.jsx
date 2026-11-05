@@ -17,7 +17,7 @@ import StoreLock from '../components/StoreLock.jsx';
 import { Bag, MapPin, Tag, Wallet, Close, Sparkle, Navigation, ChevronDown, Receipt } from '../components/Icons.jsx';
 import Modal from '../components/Modal.jsx';
 import Confetti from '../components/Confetti.jsx';
-import { money, addressLine, offerHeadline } from '../lib/format.js';
+import { money, addressLine, offerHeadline, DELIVERY_MINS } from '../lib/format.js';
 import { srcSet } from '../lib/photo.js';
 import { deliversTo, whereWeDeliver } from '../lib/deliveryArea.js';
 import usePageTitle from '../lib/usePageTitle.js';
@@ -26,7 +26,6 @@ import '../checkout.css';
 const LAST_ADDRESS = 'bitevo_last_address';
 const remember = id => { try { localStorage.setItem(LAST_ADDRESS, id); } catch { /* ignore */ } };
 const recall = () => { try { return localStorage.getItem(LAST_ADDRESS); } catch { return null; } };
-const DELIVERY_MINS = Number(import.meta.env.VITE_DELIVERY_MINS) || 30;
 
 const Back = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>;
 const Plus = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>;
