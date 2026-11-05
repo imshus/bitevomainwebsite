@@ -1,6 +1,7 @@
 // App-wide lists the admin panel keeps in the "settings" collection (document "app").
-// The website only reads them. Customers don't pick a zone for an address any more (see lib/deliveryArea.js);
-// the zones still go out in /api/config for older app versions.
+// The website only reads them. Delivery zones are gone (addresses, orders and riders have none; where we
+// deliver is lib/deliveryArea.js), but the list still goes out in /api/config: older app versions need one
+// to save an address.
 import { store } from '../db/index.js';
 
 export const DEFAULT_SETTINGS = {

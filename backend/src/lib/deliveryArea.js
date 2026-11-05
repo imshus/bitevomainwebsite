@@ -42,13 +42,11 @@ export function deliveryAreaRule() {
 export const addressText = p => [p.name, p.street, p.line1, p.line2, p.landmark, p.area, p.city, p.mapAddress, p.formatted, p.pincode]
   .filter(Boolean).join(', ');
 
-// { inArea, area, message } for a map place or saved address (`area` = the delivery area it's in, e.g.
-// "Sector 44"), or null when there's no area rule.
+// { inArea, message } for a map place or saved address, or null when there's no area rule.
 export function areaCheck(place) {
   const r = rule();
   if (!r) return null;
   const text = addressText(place || {});
-  const at = r.areaPatterns.findIndex(p => new RegExp(p, 'i').test(text));
-  const inArea = (!r.cityPattern || new RegExp(r.cityPattern, 'i').test(text)) && at >= 0;
-  return { inArea, area: inArea ? r.areas[at] : null, message: inArea ? null : `Service unavailable at this location. We deliver only to ${areaList(r)} for now.` };
+  const inArea = (!r.cityPattern || new RegExp(r.cityPattern, 'i').test(text)) && r.areaPatterns.some(p => new RegExp(p, 'i').test(text));
+  return { inArea, message: inArea ? null : `Service unavailable at this location. We deliver only to ${areaList(r)} for now.` };
 }

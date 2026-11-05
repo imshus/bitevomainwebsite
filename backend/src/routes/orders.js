@@ -7,7 +7,6 @@ import { HttpError, badRequest, conflict, notFound, unauthorized, nowIso, startO
 import { serialize, money, normalizePhone } from '../lib/rules.js';
 import { CUSTOMER_CANCEL_REASON } from '../lib/settings.js';
 import { deliveryCheck } from '../lib/maps.js';
-import { areaCheck } from '../lib/deliveryArea.js';
 import { sendMail, orderEmail } from '../lib/mail.js';
 import { requireCustomer, optionalCustomer } from '../auth.js';
 import { quote, hasOrdered } from '../pricing.js';
@@ -110,8 +109,6 @@ async function insertOrder(customer, body, { bill, phone, address }, online) {
   const mmdd = `${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
   const _id = objectId(now);
   const orderNo = `BV${mmdd}-${String(seq).padStart(3, '0')}`;
-  // Customers no longer pick a zone; the admin panel's zone column shows the delivery area instead ("Sector 44").
-  const zone = areaCheck(address)?.area || '';
 
   const saved = await store.insert('orders', {
     _id,
@@ -135,14 +132,13 @@ async function insertOrder(customer, body, { bill, phone, address }, online) {
     }),
     status: 'placed',
     agentId: null, agentName: null,
-    zone,
     deliveryMins: null, rating: null,
     isFirstOrder: !(await hasOrdered(customer._id)),
     walletUsed: bill.walletUsed,
     refund: null,
     history: [],
     address: {
-      label: address.label, line1: address.line1, line2: address.line2, landmark: address.landmark, zone, pincode: address.pincode,
+      label: address.label, line1: address.line1, line2: address.line2, landmark: address.landmark, pincode: address.pincode,
       ...(address.lat != null && { lat: address.lat, lng: address.lng, area: address.area || '', mapAddress: address.mapAddress || '' }),
     },
     note: text(body.note, 200),
