@@ -7,6 +7,7 @@ import { seedStarterMenu } from './demo/starterMenu.js';
 import { startReferralChecks } from './lib/referrals.js';
 import { startOfferChecks } from './lib/offers.js';
 import { startPaymentChecks } from './lib/razorpay.js';
+import { startLive } from './live.js';
 
 // Opens the database, trying again for about two minutes if the network or DNS has a hiccup (a failed start
 // used to leave the API down until someone restarted it). When this computer's DNS server refuses the lookup
@@ -61,8 +62,11 @@ startPaymentChecks();
 const server = createApp().listen(config.port, () => {
   console.log(`BiteVo website API listening on http://localhost:${config.port}`);
 });
+// Order changes pushed to customers' open pages (WebSocket /api/live).
+const live = startLive(server);
 
 async function shutdown() {
+  live?.close();
   server.close();
   await store.close();
   process.exit(0);

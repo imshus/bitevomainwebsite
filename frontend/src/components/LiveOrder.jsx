@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../state/auth.jsx';
 import { ORDER_STATUS, LIVE_STATUSES } from '../lib/format.js';
+import { useLiveOrders } from '../lib/live.js';
 import { ChefHat, Bike, Receipt, ChevronRight } from './Icons.jsx';
 
 const PAGES = ['/'];
@@ -13,6 +14,7 @@ export default function LiveOrder() {
   const { customer } = useAuth();
   const { pathname } = useLocation();
   const [order, setOrder] = useState(null);
+  const [pushed, setPushed] = useState(0); // bumped by live updates (lib/live.js)
   const shown = Boolean(customer) && PAGES.includes(pathname);
 
   useEffect(() => {
@@ -20,7 +22,11 @@ export default function LiveOrder() {
     let live = true;
     api.orders().then(list => { if (live) setOrder(list.find(o => LIVE_STATUSES.includes(o.status)) || null); }, () => {});
     return () => { live = false; };
-  }, [shown, pathname, customer?._id]);
+  }, [shown, pathname, customer?._id, pushed]);
+  // A new order, or the live one moving to its next step, shows at once.
+  useLiveOrders(m => {
+    if (m.type === 'resync' || order?._id !== m.id || order?.status !== m.status) setPushed(n => n + 1);
+  }, shown ? customer?._id : null);
 
   if (!shown || !order) return null;
   return (
