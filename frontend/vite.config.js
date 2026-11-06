@@ -80,8 +80,9 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           // React and the router change rarely. In a file of their own, they stay cached in visitors'
-          // browsers when a site update only changes BiteVo's own code.
-          manualChunks: id => (id.includes('node_modules') && !id.endsWith('.css') ? 'vendor' : undefined),
+          // browsers when a site update only changes BiteVo's own code. Leaflet (the order page's live map)
+          // stays out of it, in the map's own file, so only someone looking at an order on its way loads it.
+          manualChunks: id => (id.includes('node_modules') && !id.includes('/node_modules/leaflet/') && !id.endsWith('.css') ? 'vendor' : undefined),
         },
       },
     },

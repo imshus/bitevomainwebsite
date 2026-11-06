@@ -11,6 +11,10 @@ import { StatusPill, useReorder } from './Orders.jsx';
 import { money, formatWhen, formatTime, addressLine, ORDER_STATUS, LIVE_STATUSES } from '../lib/format.js';
 import usePageTitle from '../lib/usePageTitle.js';
 import { useLiveOrders } from '../lib/live.js';
+import { lazyLoad, LazyPart } from '../lib/lazy.js';
+
+// The live map (Leaflet + OpenStreetMap) is its own file, fetched only for an order that's on its way.
+const RiderMap = lazyLoad(() => import('../components/RiderMap.jsx'));
 
 const REFRESH_MS = 5000; // while the order is live and the live socket is down, so steps show within seconds
 const PUSHED_REFRESH_MS = 30000; // while live updates arrive over the WebSocket
@@ -70,18 +74,23 @@ function RiderCard({ order }) {
     tone = 'set'; chip = 'Assigned'; title = name;
     text = 'Will pick up your order as soon as it’s ready.';
   }
+  const home = order.address?.lat != null ? { lat: order.address.lat, lng: order.address.lng } : null;
   return (
-    <div className={`panel rider-card rider-card--${tone}`} aria-live="polite">
-      <span className="rider-card__avatar" aria-hidden="true">{name ? name[0].toUpperCase() : <Bike />}</span>
-      <div className="rider-card__text">
-        <span className="rider-card__top">
-          <small>Delivery partner</small>
-          {chip && <span className="rider-card__chip"><i aria-hidden="true" />{chip}</span>}
-        </span>
-        <b>{title}</b>
-        <p>{text}</p>
-        {tone === 'live' && r.locatedAt && <small className="rider-card__fresh">Location updated {ago(r.locatedAt)}</small>}
+    <div className={`panel rider-card rider-card--${tone}`}>
+      <div className="rider-card__row" aria-live="polite">
+        <span className="rider-card__avatar" aria-hidden="true">{name ? name[0].toUpperCase() : <Bike />}</span>
+        <div className="rider-card__text">
+          <span className="rider-card__top">
+            <small>Delivery partner</small>
+            {chip && <span className="rider-card__chip"><i aria-hidden="true" />{chip}</span>}
+          </span>
+          <b>{title}</b>
+          <p>{text}</p>
+          {tone === 'live' && r.locatedAt && <small className="rider-card__fresh">Location updated {ago(r.locatedAt)}</small>}
+        </div>
       </div>
+      {/* The live map, while the rider app is sending the rider's position. */}
+      {tone === 'live' && r.position && <LazyPart><RiderMap rider={r.position} home={home} /></LazyPart>}
     </div>
   );
 }

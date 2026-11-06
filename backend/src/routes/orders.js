@@ -36,17 +36,25 @@ function riderDistance(o) {
 // The delivery partner, once the kitchen assigns one (admin panel) or one takes the order (rider app).
 // `requested`: assigned by the kitchen and waiting for the rider to accept; `accepted`: the rider accepted.
 // Orders assigned before riders could accept have no `riderStatus`, so they count as accepted.
-// While it's out for delivery, `distanceKm` (null without a fresh position or a pin on the address) and
-// `locatedAt`, when the rider app last sent the rider's position (null when that's over 3 minutes ago).
-const riderOf = o => (o.agentId ? {
-  name: o.agentName || 'Your delivery partner',
-  status: o.riderStatus === 'requested' ? 'requested' : 'accepted',
-  acceptedAt: o.riderAcceptedAt || null,
-  ...(o.status === 'out_for_delivery' && {
-    distanceKm: riderDistance(o),
-    locatedAt: o.riderLocation?.at && Date.now() - Date.parse(o.riderLocation.at) <= 3 * MIN ? o.riderLocation.at : null,
-  }),
-} : null);
+// While it's out for delivery: `distanceKm` (null without a fresh position or a pin on the address),
+// `position` { lat, lng }, the rider's live position for the map, and `locatedAt`, when the rider app last
+// sent it. Both are null when that's over 3 minutes ago. The position is shown only to this order's customer,
+// and only while the order is on its way.
+function riderOf(o) {
+  if (!o.agentId) return null;
+  const at = o.riderLocation;
+  const fresh = at?.lat != null && at?.lng != null && at.at && Date.now() - Date.parse(at.at) <= 3 * MIN;
+  return {
+    name: o.agentName || 'Your delivery partner',
+    status: o.riderStatus === 'requested' ? 'requested' : 'accepted',
+    acceptedAt: o.riderAcceptedAt || null,
+    ...(o.status === 'out_for_delivery' && {
+      distanceKm: riderDistance(o),
+      locatedAt: fresh ? at.at : null,
+      position: fresh ? { lat: at.lat, lng: at.lng } : null,
+    }),
+  };
+}
 
 // What the customer sees of an order (internal fields like dueAt stay on the server).
 const publicOrder = o => ({
