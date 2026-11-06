@@ -30,6 +30,11 @@ const argPort = Number(process.argv[process.argv.indexOf('--port') + 1] || 0) ||
 
 export const config = {
   port: (process.argv.includes('--port') && argPort) || Number(process.env.PORT) || 4001,
+  // The live site: started with `npm start` (which passes --live) or with NODE_ENV=production. It must have the
+  // database (see server.js); `npm run dev` may use the local JSON file below.
+  live: process.argv.includes('--live') || process.env.NODE_ENV === 'production',
+  // ALLOW_FILE_STORE=true lets a live start use the local JSON file anyway (e.g. to try a build without a database).
+  allowFileStore: process.env.ALLOW_FILE_STORE === 'true',
   mongoUri: mongoUri(),
   mongoDbName: process.env.MONGO_DB_NAME || 'bitevo',
   // Without MongoDB the API stores data in this JSON file instead (handy for offline work).

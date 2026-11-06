@@ -26,6 +26,18 @@ async function openStore() {
   }
 }
 
+// The live site must use the shared database. Without it, it would show the built-in starter menu and keep
+// orders in a local file the admin panel (and the kitchen) never sees, so it stops here instead.
+if (config.live && !config.mongoUri && !config.allowFileStore) {
+  console.error([
+    'Not starting: no database is configured for the live site.',
+    'Set MONGO_DB_URL, MONGO_DB_USER, MONGO_DB_PASSWORD and MONGO_DB_NAME (the same as the admin panel), or MONGODB_URI,',
+    'in this server\'s environment and start it again. Without them the site would show the starter menu and its orders',
+    'would never reach the admin panel. (ALLOW_FILE_STORE=true starts it with a local file anyway, for testing only.)',
+  ].join('\n'));
+  process.exit(1);
+}
+
 try {
   await openStore();
 } catch (err) {

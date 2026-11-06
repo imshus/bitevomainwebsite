@@ -27,6 +27,12 @@ npm run dev --prefix frontend    # website on http://localhost:2002
 Copy `backend/.env.example` to `backend/.env` first. With no MongoDB settings, the API keeps data in
 `backend/data/db.json` and loads a starter menu, so it works offline.
 
+That's for development only. The live site (`npm start`, which runs the API with `--live`, or any start with
+`NODE_ENV=production`) **won't start without the database settings**: it stops with "Not starting: no database is
+configured for the live site" in the server log. Without the database it would show the starter menu (no ₹1
+items, demo coupons) and keep orders in a local file the admin panel never sees. Add the `MONGO_DB_*` settings to the
+host's environment and restart. (`ALLOW_FILE_STORE=true` overrides this, for testing only.)
+
 **To share data with the admin panel**, put the same `MONGO_DB_URL` / `MONGO_DB_USER` /
 `MONGO_DB_PASSWORD` / `MONGO_DB_NAME` as `../bitevoadminpanel/backend/.env` into `backend/.env`. The
 menu, offers and delivery areas then come from the panel, and menu photos uploaded in the panel load
