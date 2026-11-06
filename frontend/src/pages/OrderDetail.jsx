@@ -11,7 +11,7 @@ import { StatusPill, useReorder } from './Orders.jsx';
 import { money, formatWhen, formatTime, addressLine, ORDER_STATUS, LIVE_STATUSES } from '../lib/format.js';
 import usePageTitle from '../lib/usePageTitle.js';
 
-const REFRESH_MS = 15000;
+const REFRESH_MS = 5000; // while the order is live, so the kitchen's and the rider's steps show within seconds
 
 const STATUS_NEWS = {
   preparing: 'The kitchen has accepted your order and started cooking!',
@@ -35,6 +35,55 @@ function stepTime(order, status) {
   return [...order.history].reverse().find(h => h.status === status)?.at || null;
 }
 
+const firstName = name => String(name || '').trim().split(/\s+/)[0] || 'Your delivery partner';
+
+// Roughly how long ago: "just now", "20 s ago", "2 min ago".
+function ago(iso) {
+  const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
+  return s < 10 ? 'just now' : s < 60 ? `${s} s ago` : `${Math.round(s / 60)} min ago`;
+}
+
+// The delivery partner's live status: who's bringing the order and, once it's on the way, how far they are
+// (from the rider app's position and the address's location). It updates with the page, every few seconds
+// while the order is live. A rider the kitchen assigned shows by name only once they accept (they may
+// decline, and then someone else is assigned).
+function RiderCard({ order }) {
+  const r = order.rider;
+  const s = order.status;
+  if (s === 'cancelled' || (s === 'delivered' && !r)) return null;
+  let tone; let chip = null; let title; let text;
+  const name = r && r.status !== 'requested' ? firstName(r.name) : null;
+  if (s === 'delivered') {
+    tone = 'done'; chip = 'Delivered'; title = name;
+    text = order.deliveredAt ? `Delivered your order at ${formatTime(order.deliveredAt)}.` : 'Delivered your order.';
+  } else if (!name) {
+    tone = 'wait'; title = r ? 'Being assigned' : 'Not assigned yet';
+    text = r ? 'Finding a delivery partner for your order…'
+      : s === 'placed' ? 'A delivery partner is assigned once the kitchen accepts your order.' : 'We’re assigning a delivery partner for your order.';
+  } else if (s === 'out_for_delivery') {
+    tone = 'live'; chip = 'On the way'; title = name;
+    text = r.distanceKm == null ? `Picked up your order${order.dispatchedAt ? ` at ${formatTime(order.dispatchedAt)}` : ''} and is on the way.`
+      : r.distanceKm < 0.2 ? 'Almost at your door.' : `${r.distanceKm} km away from you.`;
+  } else {
+    tone = 'set'; chip = 'Assigned'; title = name;
+    text = 'Will pick up your order as soon as it’s ready.';
+  }
+  return (
+    <div className={`panel rider-card rider-card--${tone}`} aria-live="polite">
+      <span className="rider-card__avatar" aria-hidden="true">{name ? name[0].toUpperCase() : <Bike />}</span>
+      <div className="rider-card__text">
+        <span className="rider-card__top">
+          <small>Delivery partner</small>
+          {chip && <span className="rider-card__chip"><i aria-hidden="true" />{chip}</span>}
+        </span>
+        <b>{title}</b>
+        <p>{text}</p>
+        {tone === 'live' && r.locatedAt && <small className="rider-card__fresh">Location updated {ago(r.locatedAt)}</small>}
+      </div>
+    </div>
+  );
+}
+
 function Tracker({ order }) {
   const current = STEPS.findIndex(s => s.status === order.status);
   return (
@@ -47,7 +96,7 @@ function Tracker({ order }) {
             <span className="tracker__icon">{s.icon}</span>
             <div>
               <b>{s.title}{at && <time> · {formatTime(at)}</time>}</b>
-              {state === 'now' && <p>{s.status === 'out_for_delivery' && order.agentName ? `${order.agentName} is on the way with your order.` : s.text}</p>}
+              {state === 'now' && <p>{s.text}</p>}
             </div>
           </li>
         );
@@ -93,8 +142,17 @@ export default function OrderDetail() {
 
   // When the kitchen moves the order along, say so (the page refreshes itself while it's live).
   const lastStatus = useRef(null);
+  const lastRider = useRef(undefined);
   const load = () => api.order(id).then(o => {
     if (lastStatus.current && lastStatus.current !== o.status && STATUS_NEWS[o.status]) toast(STATUS_NEWS[o.status]);
+    else {
+      // …and when a delivery partner accepts it.
+      const rider = o.rider?.status === 'accepted' ? o.rider.name : null;
+      if (lastRider.current !== undefined && rider && rider !== lastRider.current && o.status !== 'out_for_delivery') {
+        toast(`${firstName(rider)} accepted your order and will pick it up once it’s ready.`);
+      }
+    }
+    lastRider.current = o.rider?.status === 'accepted' ? o.rider.name : null;
     lastStatus.current = o.status;
     setOrder(o);
     setError(null);
@@ -162,6 +220,8 @@ export default function OrderDetail() {
         ) : (
           <div className="panel"><Tracker order={order} /></div>
         )}
+
+        <RiderCard order={order} />
 
         {order.status === 'delivered' && <div className="panel"><Rating order={order} onRated={setOrder} /></div>}
 
