@@ -3,10 +3,10 @@
 import { Router } from 'express';
 import { store } from '../db/index.js';
 import { objectId } from '../lib/ids.js';
-import { HttpError, badRequest, conflict, notFound, unauthorized, nowIso, startOfToday, text } from '../lib/http.js';
+import { HttpError, badRequest, conflict, notFound, unauthorized, nowIso, startOfToday, text, MIN } from '../lib/http.js';
 import { serialize, money, normalizePhone } from '../lib/rules.js';
 import { CUSTOMER_CANCEL_REASON } from '../lib/settings.js';
-import { deliveryCheck } from '../lib/maps.js';
+import { deliveryCheck, distanceKm } from '../lib/maps.js';
 import { sendMail, orderEmail } from '../lib/mail.js';
 import { requireCustomer, optionalCustomer } from '../auth.js';
 import { quote, hasOrdered } from '../pricing.js';
@@ -22,6 +22,31 @@ router.post('/quote', optionalCustomer, async (req, res) => {
 });
 
 router.use(requireCustomer);
+
+// How far the rider is from the door (km), while the order is out for delivery: from the rider app's latest
+// position (saved on the order) and the address's location pin. null when either is missing or the position
+// is more than 3 minutes old.
+function riderDistance(o) {
+  const at = o.riderLocation;
+  const to = o.address;
+  if (!at || at.lat == null || to?.lat == null || Date.now() - Date.parse(at.at) > 3 * MIN) return null;
+  return Math.round(distanceKm(at, to) * 10) / 10;
+}
+
+// The delivery partner, once the kitchen assigns one (admin panel) or one takes the order (rider app).
+// `requested`: assigned by the kitchen and waiting for the rider to accept; `accepted`: the rider accepted.
+// Orders assigned before riders could accept have no `riderStatus`, so they count as accepted.
+// While it's out for delivery, `distanceKm` (null without a fresh position or a pin on the address) and
+// `locatedAt`, when the rider app last sent the rider's position (null when that's over 3 minutes ago).
+const riderOf = o => (o.agentId ? {
+  name: o.agentName || 'Your delivery partner',
+  status: o.riderStatus === 'requested' ? 'requested' : 'accepted',
+  acceptedAt: o.riderAcceptedAt || null,
+  ...(o.status === 'out_for_delivery' && {
+    distanceKm: riderDistance(o),
+    locatedAt: o.riderLocation?.at && Date.now() - Date.parse(o.riderLocation.at) <= 3 * MIN ? o.riderLocation.at : null,
+  }),
+} : null);
 
 // What the customer sees of an order (internal fields like dueAt stay on the server).
 const publicOrder = o => ({
@@ -44,6 +69,7 @@ const publicOrder = o => ({
   address: o.address || null,
   note: o.note || '',
   agentName: o.agentName || null,
+  rider: riderOf(o),
   dispatchedAt: o.dispatchedAt || null,
   deliveredAt: o.deliveredAt || null,
   cancelledAt: o.cancelledAt || null,
