@@ -52,6 +52,10 @@ production).
 - Pay on delivery, or partly or fully from the BiteVo wallet.
 - Follow the order live (placed → preparing → out for delivery → delivered), cancel it before the
   kitchen accepts it (wallet money is refunded), rate it, and order it again.
+- See the delivery partner on the order page: who it is, and while the order is on its way a live map
+  (Leaflet with OpenStreetMap tiles, no Google key needed) with the rider and the delivery address, the distance,
+  and when the position last updated. The position comes from the rider app (`riderLocation` on the order) and is
+  shown only to that order's customer, only while it's on its way, and only when it's under 3 minutes old.
 - See wallet balance and history; send a message to support.
 - Refer friends: share a code or link, and earn wallet cashback when a friend completes their first orders.
 
