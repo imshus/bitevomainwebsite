@@ -42,6 +42,16 @@ export function deliveryAreaRule() {
 export const addressText = p => [p.name, p.street, p.line1, p.line2, p.landmark, p.area, p.city, p.mapAddress, p.formatted, p.pincode]
   .filter(Boolean).join(', ');
 
+// The delivery area a place or address is in ("Sector 44"), or null (outside the areas, or no area rule).
+export function areaOf(place) {
+  const r = rule();
+  if (!r) return null;
+  const text = addressText(place || {});
+  if (r.cityPattern && !new RegExp(r.cityPattern, 'i').test(text)) return null;
+  const at = r.areaPatterns.findIndex(p => new RegExp(p, 'i').test(text));
+  return at >= 0 ? r.areas[at] : null;
+}
+
 // { inArea, message } for a map place or saved address, or null when there's no area rule.
 export function areaCheck(place) {
   const r = rule();

@@ -38,13 +38,36 @@ production).
 - Browse the live menu: categories, search, veg-only filter, combos, sold-out dishes.
 - Build a cart (saved in the browser) and check out.
 - Sign in with a mobile number and a 6-digit code; new numbers become new customers.
-- Save delivery addresses (areas = the delivery zones set in the admin panel).
+- Save delivery addresses: pick the sector (Sector 40, 44 or 45, Gurugram), then house / flat and building /
+  street (see "Delivery addresses" below).
+- Add one ₹1 store item once the rest of the cart reaches ₹399 (`STORE_UNLOCK_AT`); until then the ₹1 dishes'
+  Add button is locked ("On ₹399+") and the server refuses an order with one.
 - Apply offer codes (all the panel's coupon types, with the same maths and limits).
 - Pay on delivery, or partly or fully from the BiteVo wallet.
 - Follow the order live (placed → preparing → out for delivery → delivered), cancel it before the
   kitchen accepts it (wallet money is refunded), rate it, and order it again.
 - See wallet balance and history; send a message to support.
 - Refer friends: share a code or link, and earn wallet cashback when a friend completes their first orders.
+
+## Delivery addresses
+
+A saved address (`customers.addresses[]`) is stored as separate fields, checked by the server
+(`cleanAddress` in `backend/src/routes/account.js`):
+
+| Field | What | Example |
+|---|---|---|
+| `area` | One of the delivery areas (`DELIVERY_AREAS`), picked from a list, not typed | `Sector 44` |
+| `city` | Set by the server from `DELIVERY_CITY` | `Gurugram` |
+| `house` | House / flat number and floor (required) | `Flat 302, 3rd floor` |
+| `building` | Building, society or street (required) | `Tower B, Palm Residency` |
+| `landmark`, `pincode` | Optional (pincode must be 6 digits) | `Near Huda Market`, `122003` |
+| `lat`, `lng` | Optional: the phone's GPS position ("I'm at this address now: add my location") or a Google Maps pin (then also `mapAddress`) | |
+| `line1`, `line2` | Made by the server: `house, building` and `area, city` | |
+
+`line1` / `line2` are what orders, emails, the rider app and the admin panel show, and what older app versions
+send (an address sent as just those two lines still works; its sector is worked out from the text). Orders keep a
+copy of the address with all these fields. With a GPS position or map pin, the rider app's Navigate goes straight
+to the door; without one it searches the typed address.
 
 ## Refer & earn
 

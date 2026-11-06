@@ -583,6 +583,11 @@ a, button, label, summary { -webkit-tap-highlight-color: transparent; touch-acti
 .price__half { flex-basis: 100%; color: var(--muted); font-size: 12px; font-weight: 600; }
 .dish__foot > .add-btn, .dish__foot > .stepper { flex: none; } /* the price wraps instead of squeezing these */
 .add-btn--choose { position: relative; }
+/* A ₹1 item before the cart reaches the unlock amount (see AddButton in Dish.jsx) */
+.add-btn.add-btn--locked { display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #8A8A8A; border-color: #DDD; background: #F6F6F6; box-shadow: none; }
+.add-btn.add-btn--locked:hover { background: #F0F0F0; box-shadow: none; transform: none; }
+.add-btn--locked svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.tile .add-btn.add-btn--locked, .dish--row .add-btn.add-btn--locked { border-color: #DDD; }
 .add-btn--choose small {
   position: absolute; left: 0; right: 0; top: calc(100% + 3px); color: var(--muted);
   font-size: 9.5px; font-weight: 600; letter-spacing: .02em; text-transform: none; white-space: nowrap; text-align: center;

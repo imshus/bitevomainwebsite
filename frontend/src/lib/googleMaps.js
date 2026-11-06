@@ -21,16 +21,17 @@ export function loadGoogleMaps(key) {
   return loading;
 }
 
-// The visitor's position from the browser, as { lat, lng }, with a friendly message when it fails.
-export function currentPosition() {
+// The visitor's position from the browser, as { lat, lng, accuracy } (accuracy in metres), with a friendly
+// message when it fails. `fallback` ends that message (what to do instead); `fresh` skips a cached position.
+export function currentPosition({ fallback = 'Search for your area instead.', fresh = false } = {}) {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { reject(new Error('Your browser can’t share your location. Search for your area instead.')); return; }
+    if (!navigator.geolocation) { reject(new Error(`Your browser can’t share your location. ${fallback}`)); return; }
     navigator.geolocation.getCurrentPosition(
-      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy || 0) || null }),
       err => reject(new Error(err.code === err.PERMISSION_DENIED
-        ? 'Location access is turned off. Allow it in your browser settings, or search for your area instead.'
-        : 'We couldn’t find your location. Search for your area instead.')),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
+        ? `Location access is turned off. Allow it in your browser settings. ${fallback}`
+        : `We couldn’t find your location. ${fallback}`)),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: fresh ? 0 : 60000 },
     );
   });
 }

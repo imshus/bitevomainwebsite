@@ -208,6 +208,11 @@
 .place-row__off { display: block; margin-top: 2px; color: var(--red); font-size: 12.5px; font-weight: 600; }
 .pin-add { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .pin-add svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; }
+/* Address form: the sector chips, and "I'm at this address now" (the phone's GPS) */
+.chips--fit { flex-wrap: wrap; margin: 0; }
+.gps-add { display: grid; justify-items: start; gap: 2px; }
+.gps-add .pin-add { margin: 0; text-align: left; }
+.gps-add small { color: var(--muted); font-size: 12.5px; }
 
 @media (max-width: 520px) {
   .menu-top { padding-top: 16px; }

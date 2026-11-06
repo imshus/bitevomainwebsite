@@ -1,19 +1,37 @@
 // Dish cards (two per row in a tab, smaller tiles in sideways rows), the ADD button that turns into a
 // – 1 + stepper, and the sheet with a dish's details.
 import { useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCart } from '../state/cart';
+import { useCart, isStoreItem } from '../state/cart';
+import { useConfig } from '../state/data';
 import { sized } from '../lib/photo';
 import { money } from '../lib/format';
 import { C, R, shadow } from '../theme';
 import { Price, VegMark } from './ui';
 import { Close } from './Icons';
 
+// ₹1 store items stay locked until the rest of the cart reaches config.offers.storeUnlockAt (₹399), as on the
+// website; the server checks the same rule.
 export function AddButton({ product, wide }) {
   const cart = useCart();
+  const { data: config } = useConfig();
   const qty = cart.qtyOf(product._id);
   if (!product.isAvailable) return <View style={[st.add, st.soldOut, wide && st.wide]}><Text style={st.soldOutText}>Sold out</Text></View>;
+  const unlockAt = config?.offers?.storeUnlockAt || 0;
+  const moreNeeded = unlockAt && isStoreItem(product) ? Math.max(0, unlockAt - cart.nonStoreTotal) : 0;
+  if (!qty && moreNeeded > 0) {
+    return (
+      <Pressable
+        onPress={() => Alert.alert('₹1 item locked', `Add ${money(moreNeeded)} more of other dishes to unlock one ₹1 item.`)}
+        style={[st.add, st.locked, wide && st.wide]}
+        accessibilityLabel={`${product.name} unlocks once your other dishes reach ${money(unlockAt)}. Add ${money(moreNeeded)} more.`}
+      >
+        <Text style={st.lockedText}>🔒 ADD</Text>
+        <Text style={st.lockedHint}>On {money(unlockAt)}+</Text>
+      </Pressable>
+    );
+  }
   if (!qty) {
     return (
       <Pressable onPress={() => cart.add(product)} style={({ pressed }) => [st.add, wide && st.wide, pressed && { backgroundColor: C.greenSoft }]} accessibilityLabel={`Add ${product.name}`}>
@@ -115,6 +133,9 @@ export function DishSheet({ product, onClose }) {
 const st = StyleSheet.create({
   add: { height: 34, minWidth: 70, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1.5, borderColor: '#5DB15A', backgroundColor: C.white, alignItems: 'center', justifyContent: 'center' },
   addText: { color: C.green, fontWeight: '800', fontSize: 13 },
+  locked: { borderColor: '#DDDDDD', backgroundColor: '#F6F6F6' },
+  lockedText: { color: '#8A8A8A', fontWeight: '800', fontSize: 12 },
+  lockedHint: { color: '#8A8A8A', fontWeight: '600', fontSize: 9 },
   wide: { minWidth: 120, height: 42 },
   soldOut: { borderColor: C.line },
   soldOutText: { color: C.faint, fontWeight: '700', fontSize: 12 },

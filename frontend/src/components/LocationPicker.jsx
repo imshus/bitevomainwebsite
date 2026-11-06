@@ -197,7 +197,8 @@ export function PinMap({ start, confirmLabel = 'Confirm location', onConfirm, on
     setLocating(true);
     setError('');
     try {
-      const p = await currentPosition();
+      const { lat, lng } = await currentPosition();
+      const p = { lat, lng };
       if (map.current) { map.current.panTo(p); map.current.setZoom(18); } else lookup(p.lat, p.lng);
     } catch (err) {
       setError(err.message);

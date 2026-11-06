@@ -18,7 +18,7 @@ function load() {
 
 // ₹1 store items: one per order (once the rest reaches ₹399, see StoreLock.jsx). Menu dishes carry their tab;
 // anything else priced ₹1 counts too.
-const isStoreItem = p => p.store ?? (p.tab ? p.tab === 'store' : p.price <= 1);
+export const isStoreItem = p => p.store ?? (p.tab ? p.tab === 'store' : p.price <= 1);
 
 // Dishes with a half-plate price (set in the admin panel) are ordered as a half or a full plate: each portion
 // is its own cart line ("Butter Chicken (Half)"). Other dishes have one line, keyed by the dish's id.
@@ -110,6 +110,8 @@ export function CartProvider({ children }) {
       coupon: state.coupon,
       count: state.lines.reduce((s, l) => s + l.qty, 0),
       itemTotal: state.lines.reduce((s, l) => s + l.qty * l.price, 0),
+      // What unlocks the ₹1 item: everything else in the cart.
+      nonStoreTotal: state.lines.filter(l => !isStoreItem(l)).reduce((s, l) => s + l.qty * l.price, 0),
       qtyOf,
       add: (product, portion) => setQty(product, qtyOf(product._id, portionOf(product, portion)) + 1, portion),
       setQty,

@@ -2,7 +2,9 @@
 // the dish details sheet.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useCart, hasHalfPlate } from '../state/cart.jsx';
+import { useCart, hasHalfPlate, isStoreItem } from '../state/cart.jsx';
+import { useConfig } from '../state/menu.js';
+import { useToast } from '../state/toast.jsx';
 import { money } from '../lib/format.js';
 import { srcSet, sized } from '../lib/photo.js';
 import { flyToCart } from '../lib/motion.js';
@@ -30,13 +32,33 @@ export function Stepper({ qty, onChange, label, small = false, max = 20 }) {
   );
 }
 
+const LockIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" /></svg>;
+
 // `photo` is the element the fly-to-cart animation starts from (the card's or the sheet's photo).
 // Dishes that come as a half or a full plate open the portion chooser instead (its + and − too).
+// ₹1 store items stay locked until the rest of the cart reaches config.offers.storeUnlockAt (₹399); the
+// server checks the same rule (backend/src/pricing.js).
 export function AddButton({ product, wide = false, compact = false }) {
   const cart = useCart();
+  const { data: config } = useConfig();
+  const toast = useToast();
   const [choosing, setChoosing] = useState(false);
   const qty = cart.qtyOf(product._id);
   if (!product.isAvailable) return <span className="sold-out">Sold out</span>;
+  const unlockAt = config?.offers?.storeUnlockAt || 0;
+  const moreNeeded = unlockAt && isStoreItem(product) ? Math.max(0, unlockAt - cart.nonStoreTotal) : 0;
+  if (!qty && moreNeeded > 0) {
+    return (
+      <button
+        type="button" className={`add-btn add-btn--locked add-btn--choose${wide ? ' add-btn--wide' : ''}${compact ? ' add-btn--sm' : ''}`}
+        onClick={() => toast(`Add ${money(moreNeeded)} more of other dishes to unlock one ₹1 item.`, 'info')}
+        aria-label={`${product.name} unlocks once your other dishes reach ${money(unlockAt)}. Add ${money(moreNeeded)} more.`}
+      >
+        <LockIcon /> Add
+        <small>On {money(unlockAt)}+</small>
+      </button>
+    );
+  }
   const portions = hasHalfPlate(product);
   const chooser = choosing && <PortionPicker product={product} onClose={() => setChoosing(false)} />;
   if (qty) {

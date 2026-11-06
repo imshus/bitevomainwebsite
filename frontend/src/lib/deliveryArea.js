@@ -17,5 +17,21 @@ export function deliversTo(place, config) {
   }
 }
 
+// The delivery area a place or address is in ("Sector 44"), or '' when it names none of them (or there's
+// no area rule). The same check as areaOf() on the server; `anyCity` also accepts text that doesn't name
+// the city (older addresses typed as "Q383, Sector 40").
+export function areaOf(place, config, { anyCity = false } = {}) {
+  const rule = config?.delivery;
+  if (!place || !rule?.areas?.length) return '';
+  const text = textOf(place);
+  try {
+    if (!anyCity && rule.cityPattern && !new RegExp(rule.cityPattern, 'i').test(text)) return '';
+    const at = rule.areaPatterns.findIndex(p => new RegExp(p, 'i').test(text));
+    return at >= 0 ? rule.areas[at] : '';
+  } catch {
+    return '';
+  }
+}
+
 // "We deliver only to Sector 40, Sector 44 and Sector 45 in Gurugram for now."
 export const whereWeDeliver = config => (config?.delivery ? `We deliver only to ${config.delivery.label} for now.` : 'This spot is outside our delivery range.');

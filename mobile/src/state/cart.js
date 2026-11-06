@@ -10,7 +10,7 @@ const CartContext = createContext(null);
 
 // ₹1 store items: one per order (once the rest reaches ₹399, as on the website). Menu dishes carry their
 // tab; anything else priced ₹1 counts too.
-const isStoreItem = p => p.store ?? (p.tab ? p.tab === 'store' : p.price <= 1);
+export const isStoreItem = p => p.store ?? (p.tab ? p.tab === 'store' : p.price <= 1);
 const snapshot = p => ({ productId: p._id, name: p.name, price: p.price, image: p.image, isVeg: p.isVeg, store: isStoreItem(p) });
 
 export function CartProvider({ children }) {
@@ -72,6 +72,8 @@ export function CartProvider({ children }) {
       coupon: state.coupon,
       count: state.lines.reduce((s, l) => s + l.qty, 0),
       itemTotal: state.lines.reduce((s, l) => s + l.qty * l.price, 0),
+      // What unlocks the ₹1 item: everything else in the cart.
+      nonStoreTotal: state.lines.filter(l => !isStoreItem(l)).reduce((s, l) => s + l.qty * l.price, 0),
       qtyOf,
       add: product => setQty(product, qtyOf(product._id) + 1),
       setQty,

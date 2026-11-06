@@ -5,6 +5,7 @@ import { config } from '../config.js';
 import { objectId } from '../lib/ids.js';
 import { badRequest, conflict, notFound, nowIso, text } from '../lib/http.js';
 import { deliveryCheck } from '../lib/maps.js';
+import { deliveryAreaRule, areaOf } from '../lib/deliveryArea.js';
 import { settleReferrals } from '../lib/referrals.js';
 import { settleOffers } from '../lib/offers.js';
 import { serialize, LIVE_STATUSES } from '../lib/rules.js';
@@ -41,27 +42,61 @@ router.patch('/', async (req, res) => {
 
 // ---- Addresses ------------------------------------------------------------------------
 
-// No delivery zone: where we deliver is decided by the address itself (deliveryCheck below). Older app
-// versions still send a `zone`; it's ignored.
+// A saved address is stored as separate fields:
+//   house     flat / house number and floor          "Flat 302, 3rd floor"   (required)
+//   building  building, society or street            "Tower B, Palm Residency" (required)
+//   area      one of the delivery areas, picked from the list                  "Sector 44"
+//   city      the delivery city (set by the server when there's an area rule)  "Gurugram"
+//   landmark, pincode (optional), label (Home / Work / Other)
+//   lat, lng  where the customer was when they tapped "I'm at this address" (phone GPS), or a map pin;
+//             mapAddress is the map's address for a pin (none for GPS)
+// line1 ("house, building") and line2 ("area, city") are kept too: orders, emails, the rider app and the
+// admin panel show them, and older app versions send and read only those two lines (then the area is
+// worked out from the text, as before). Older app versions also send a `zone`; it's ignored.
 function cleanAddress(body) {
   const a = {
     label: text(body?.label, 20) || 'Home',
-    line1: text(body?.line1, 120),
-    line2: text(body?.line2, 120),
     landmark: text(body?.landmark, 80),
     pincode: text(body?.pincode, 6).replace(/\D/g, ''),
   };
-  if (a.line1.length < 5) throw badRequest('Enter your house/flat number and street.');
+  if (body && ('house' in body || 'building' in body)) {
+    const house = text(body.house, 60);
+    const building = text(body.building, 120);
+    if (!house) throw badRequest('Enter your house or flat number.');
+    if (building.length < 3) throw badRequest('Enter your building, society or street.');
+    const rule = deliveryAreaRule();
+    let area;
+    let city;
+    if (rule) {
+      area = rule.areas.find(x => x.toLowerCase() === text(body.area, 60).toLowerCase());
+      if (!area) throw badRequest(`Pick your sector. We deliver only to ${rule.label} for now.`);
+      city = rule.city;
+    } else {
+      area = text(body.area, 60);
+      city = text(body.city, 60);
+      if (!area) throw badRequest('Enter your area or sector.');
+      if (!city) throw badRequest('Enter your city.');
+    }
+    Object.assign(a, { house, building, area, city, line1: `${house}, ${building}`.slice(0, 120), line2: [area, city].filter(Boolean).join(', ') });
+  } else {
+    a.line1 = text(body?.line1, 120);
+    a.line2 = text(body?.line2, 120);
+    if (a.line1.length < 5) throw badRequest('Enter your house/flat number and street.');
+  }
   if (a.pincode && a.pincode.length !== 6) throw badRequest('Pincode must be 6 digits.');
 
-  // The map pin, when the address was picked on the map (older and hand-typed addresses have none).
+  // The phone's GPS position or a map pin, when the customer gave one (it takes the rider to the door).
   const lat = Number(body?.lat);
   const lng = Number(body?.lng);
   if (body?.lat != null && body?.lng != null && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
-    Object.assign(a, { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6, area: text(body?.area, 60), mapAddress: text(body?.mapAddress, 200) });
+    Object.assign(a, { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 });
+    const mapAddress = text(body?.mapAddress, 200);
+    if (mapAddress) a.mapAddress = mapAddress;
+    if (!a.area && body?.area) a.area = text(body.area, 60); // an older app's map area
   }
   const check = deliveryCheck(a);
   if (!check.deliverable) throw badRequest(check.message);
+  if (!a.house) a.area = areaOf(a) || a.area || ''; // two-line addresses: name the sector for riders and the panel
   return a;
 }
 

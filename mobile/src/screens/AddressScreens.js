@@ -7,7 +7,7 @@ import { useAuth } from '../state/auth';
 import { useConfig } from '../state/data';
 import { useChosenAddress } from '../state/address';
 import { addressLine } from '../lib/format';
-import { deliversTo, whereWeDeliver } from '../lib/deliveryArea';
+import { deliversTo, whereWeDeliver, areaOf } from '../lib/deliveryArea';
 import { Button, Empty } from '../components/ui';
 import { MapPin } from '../components/Icons';
 import { C, R } from '../theme';
@@ -59,24 +59,43 @@ export function AddressesScreen({ navigation }) {
 
 const LABELS = ['Home', 'Work', 'Other'];
 
+// The form's fields for a saved address (the same as the website's form). Older addresses have two lines only
+// ("Flat 302, Tower B" / "Sector 44, Gurugram"): the first is split at its first comma, and the sector is
+// found in the text.
+function fieldsOf(a, config) {
+  const blank = { label: 'Home', house: '', building: '', area: '', city: '', landmark: '', pincode: '' };
+  if (!a) return blank;
+  const base = { ...blank, label: a.label || 'Home', landmark: a.landmark || '', pincode: a.pincode || '' };
+  if (a.house) return { ...base, house: a.house, building: a.building || '', area: a.area || '', city: a.city || '' };
+  const [first = '', ...rest] = (a.line1 || '').split(',');
+  return { ...base, house: first.trim(), building: rest.join(',').trim(), area: areaOf(a, config, { anyCity: true }) };
+}
+
+// The address is saved as separate fields (see cleanAddress in backend/src/routes/account.js): the sector,
+// picked from the delivery areas (the city is filled in), house / flat, building / street, landmark, pincode.
 export function AddressFormScreen({ navigation, route }) {
   const editing = route.params?.address || null;
   const { setCustomer } = useAuth();
   const { data: config } = useConfig();
   const [, choose] = useChosenAddress();
-  // No delivery zone to pick: the server checks the sector and city are in a delivery area.
-  const [form, setForm] = useState(() => ({ label: 'Home', line1: '', line2: '', landmark: '', pincode: '', ...editing }));
+  const rule = config?.delivery || null; // the delivery areas, e.g. Sector 40, 44 and 45 in Gurugram
+  const [form, setForm] = useState(() => fieldsOf(editing, config));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const set = field => value => setForm(f => ({ ...f, [field]: value }));
-  const served = deliversTo(form, config);
-  const filled = form.line1.trim().length >= 5 && form.line2.trim();
+  const filled = form.house.trim() && form.building.trim().length >= 3 && form.area.trim() && (rule || form.city.trim());
 
   const save = async () => {
     setBusy(true);
     setError('');
     try {
-      const body = { label: form.label, line1: form.line1, line2: form.line2, landmark: form.landmark, pincode: form.pincode };
+      const body = {
+        label: form.label, house: form.house, building: form.building, area: form.area,
+        ...(!rule && { city: form.city }),
+        landmark: form.landmark, pincode: form.pincode,
+        // An address saved with a location (map pin or the website's GPS) keeps it.
+        ...(editing?.lat != null && { lat: editing.lat, lng: editing.lng, ...(editing.mapAddress && { mapAddress: editing.mapAddress }) }),
+      };
       const result = editing ? await api.updateAddress(editing._id, body) : await api.addAddress(body);
       setCustomer(result.customer);
       if (result.address?._id) choose(result.address._id);
@@ -96,15 +115,33 @@ export function AddressFormScreen({ navigation, route }) {
           <Pressable key={l} onPress={() => set('label')(l)} style={[st.chip, form.label === l && st.chipOn]}><Text style={[st.chipText, form.label === l && st.chipTextOn]}>{l}</Text></Pressable>
         ))}
       </View>
-      <Text style={st.fieldLabel}>House / flat no., building, street</Text>
-      <TextInput value={form.line1} onChangeText={set('line1')} placeholder="e.g. Flat 302, Tower B, Palm Residency" placeholderTextColor={C.faint} style={st.input} maxLength={120} />
-      <Text style={st.fieldLabel}>Sector and city</Text>
-      <TextInput value={form.line2} onChangeText={set('line2')} placeholder="e.g. Sector 44, Gurugram" placeholderTextColor={C.faint} style={st.input} maxLength={120} />
+      {rule ? (
+        <>
+          <Text style={st.fieldLabel}>Sector <Text style={st.fieldHint}>in {rule.city}</Text></Text>
+          <View style={st.chips} accessibilityRole="radiogroup">
+            {rule.areas.map(a => (
+              <Pressable key={a} onPress={() => set('area')(a)} accessibilityRole="radio" accessibilityState={{ checked: form.area === a }} style={[st.chip, form.area === a && st.chipOn]}>
+                <Text style={[st.chipText, form.area === a && st.chipTextOn]}>{a}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={st.fieldLabel}>Area / sector</Text>
+          <TextInput value={form.area} onChangeText={set('area')} placeholderTextColor={C.faint} style={st.input} maxLength={60} />
+          <Text style={st.fieldLabel}>City</Text>
+          <TextInput value={form.city} onChangeText={set('city')} placeholderTextColor={C.faint} style={st.input} maxLength={60} />
+        </>
+      )}
+      <Text style={st.fieldLabel}>House / flat no. & floor</Text>
+      <TextInput value={form.house} onChangeText={set('house')} placeholder="e.g. Flat 302, 3rd floor" placeholderTextColor={C.faint} style={st.input} maxLength={60} />
+      <Text style={st.fieldLabel}>Building, society or street</Text>
+      <TextInput value={form.building} onChangeText={set('building')} placeholder="e.g. Tower B, Palm Residency" placeholderTextColor={C.faint} style={st.input} maxLength={120} />
       <Text style={st.fieldLabel}>Landmark (optional)</Text>
       <TextInput value={form.landmark} onChangeText={set('landmark')} placeholder="e.g. Near Huda Market" placeholderTextColor={C.faint} style={st.input} maxLength={80} />
       <Text style={st.fieldLabel}>Pincode (optional)</Text>
       <TextInput value={form.pincode} onChangeText={v => set('pincode')(v.replace(/\D/g, '').slice(0, 6))} placeholder="122003" placeholderTextColor={C.faint} keyboardType="number-pad" style={st.input} />
-      {filled && !served && <Text style={st.off}>Service unavailable at this address. {whereWeDeliver(config)}</Text>}
       {error ? <Text style={st.error}>{error}</Text> : null}
       <Button title={editing ? 'Save changes' : 'Save address'} onPress={save} busy={busy} disabled={!filled} />
     </ScrollView>
@@ -123,6 +160,7 @@ const st = StyleSheet.create({
   off: { color: C.red, fontWeight: '700', fontSize: 13 },
   link: { color: C.red, fontWeight: '700', fontSize: 14 },
   fieldLabel: { fontSize: 13, fontWeight: '700', color: C.ink },
+  fieldHint: { fontWeight: '500', color: C.muted },
   input: { borderWidth: 1.5, borderColor: '#DADADA', borderRadius: 12, height: 50, paddingHorizontal: 14, fontSize: 15, color: C.ink },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderWidth: 1.5, borderColor: '#DADADA', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
