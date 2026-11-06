@@ -1,4 +1,4 @@
-// Live order status for the website: a WebSocket at /api/live. A signed-in customer's pages open it and hear
+// Live order status for the website: a WebSocket at /api/ws. A signed-in customer's pages open it and hear
 // { type: 'order', id, status } whenever one of their orders changes: placed here; accepted, assigned or cancelled
 // in the admin panel; accepted, picked up or delivered in the rider app; or the rider's position moving. The page
 // then reloads that order through the API (GET /api/orders/:id), so what customers see is still shaped in one
@@ -6,13 +6,13 @@
 // The changes come from a MongoDB change stream on `orders`, so writes by the admin panel's and the rider app's
 // APIs count as much as this API's own. Without MongoDB (the JSON demo store) there's no stream: pages refresh on a
 // timer, as they also do whenever the socket is down.
-// Behind nginx, /api/live needs the WebSocket upgrade passed on (see README, Going live).
+// Behind nginx, /api/ws needs the WebSocket upgrade passed on (see README, Going live).
 import { WebSocketServer } from 'ws';
 import { store } from './db/index.js';
 import { config } from './config.js';
 import { findSession } from './auth.js';
 
-const PATH = '/api/live';
+const PATH = '/api/ws'; // the same path as the admin panel's live socket
 const PING_MS = 25000; // keeps proxies from closing a quiet connection, and finds dead ones
 const COALESCE_MS = 1000; // the rider's position moves an order every few seconds: one message a second at most
 const RESTART_MS = 5000;

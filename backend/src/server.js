@@ -62,7 +62,7 @@ startPaymentChecks();
 const server = createApp().listen(config.port, () => {
   console.log(`BiteVo website API listening on http://localhost:${config.port}`);
 });
-// Order changes pushed to customers' open pages (WebSocket /api/live).
+// Order changes pushed to customers' open pages (WebSocket /api/ws).
 const live = startLive(server);
 
 async function shutdown() {

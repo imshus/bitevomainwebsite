@@ -1,4 +1,4 @@
-// Live order updates from the website API's WebSocket (/api/live, backend/src/live.js). It says
+// Live order updates from the website API's WebSocket (/api/ws, backend/src/live.js). It says
 // { type: 'order', id, status } when one of the signed-in customer's orders changes anywhere (the kitchen in the
 // admin panel, the rider app), so pages reload that order at once instead of at their next refresh. After the
 // socket was down, { type: 'resync' }: something may have changed meanwhile.
@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-const socketUrl = () => `${(BASE || window.location.origin).replace(/^http/, 'ws')}/api/live`;
+const socketUrl = () => `${(BASE || window.location.origin).replace(/^http/, 'ws')}/api/ws`;
 
 const listeners = new Set();
 const upListeners = new Set();
