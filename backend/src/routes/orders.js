@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { store } from '../db/index.js';
 import { objectId } from '../lib/ids.js';
 import { HttpError, badRequest, conflict, notFound, unauthorized, nowIso, startOfToday, text, MIN } from '../lib/http.js';
-import { serialize, money, normalizePhone } from '../lib/rules.js';
+import { serialize, money, normalizePhone, LIVE_STATUSES } from '../lib/rules.js';
 import { CUSTOMER_CANCEL_REASON } from '../lib/settings.js';
 import { deliveryCheck, distanceKm } from '../lib/maps.js';
 import { sendMail, orderEmail } from '../lib/mail.js';
@@ -23,41 +23,46 @@ router.post('/quote', optionalCustomer, async (req, res) => {
 
 router.use(requireCustomer);
 
-// How far the rider is from the door (km), while the order is out for delivery: from the rider app's latest
-// position (saved on the order) and the address's location pin. null when either is missing or the position
-// is more than 3 minutes old.
-function riderDistance(o) {
-  const at = o.riderLocation;
-  const to = o.address;
-  if (!at || at.lat == null || to?.lat == null || Date.now() - Date.parse(at.at) > 3 * MIN) return null;
-  return Math.round(distanceKm(at, to) * 10) / 10;
-}
+// A rider-app position is used while it's under 3 minutes old.
+const freshPoint = p => p?.lat != null && p?.lng != null && p.at && Date.now() - Date.parse(p.at) <= 3 * MIN;
 
 // The delivery partner, once the kitchen assigns one (admin panel) or one takes the order (rider app).
 // `requested`: assigned by the kitchen and waiting for the rider to accept; `accepted`: the rider accepted.
 // Orders assigned before riders could accept have no `riderStatus`, so they count as accepted.
-// While it's out for delivery: `distanceKm` (null without a fresh position or a pin on the address),
-// `position` { lat, lng }, the rider's live position for the map, and `locatedAt`, when the rider app last
-// sent it. Both are null when that's over 3 minutes ago. The position is shown only to this order's customer,
-// and only while the order is on its way.
-function riderOf(o) {
+// Once accepted, `leg` says where the rider is heading: 'to_kitchen' (to pick the order up) until it's out for
+// delivery, then 'to_customer'. With it: `position` { lat, lng, heading }, the rider's live position for the map,
+// `locatedAt`, when the rider app last sent it, and `distanceKm` to the kitchen or the door (null without the
+// kitchen's position, KITCHEN_LAT / KITCHEN_LNG, or a location on the address). `agent` is the rider's own record
+// (its `location` is kept up to date by the rider app all the time; the order's `riderLocation` only while it's
+// carried); it's looked up for the order page only. The position goes only to this order's customer, only
+// while the order is live, and only when it's under 3 minutes old.
+function riderOf(o, agent = null) {
   if (!o.agentId) return null;
-  const at = o.riderLocation;
-  const fresh = at?.lat != null && at?.lng != null && at.at && Date.now() - Date.parse(at.at) <= 3 * MIN;
-  return {
+  const rider = {
     name: o.agentName || 'Your delivery partner',
     status: o.riderStatus === 'requested' ? 'requested' : 'accepted',
     acceptedAt: o.riderAcceptedAt || null,
-    ...(o.status === 'out_for_delivery' && {
-      distanceKm: riderDistance(o),
-      locatedAt: fresh ? at.at : null,
-      position: fresh ? { lat: at.lat, lng: at.lng } : null,
-    }),
+  };
+  const leg = rider.status !== 'accepted' ? null
+    : o.status === 'out_for_delivery' ? 'to_customer'
+    : ['placed', 'preparing'].includes(o.status) ? 'to_kitchen' : null;
+  if (!leg) return rider;
+  const at = [o.riderLocation, agent?.location].filter(freshPoint).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null;
+  const target = leg === 'to_kitchen' ? config.maps.kitchen : o.address?.lat != null ? o.address : null;
+  return {
+    ...rider,
+    leg,
+    position: at ? { lat: at.lat, lng: at.lng, heading: at.heading ?? null } : null,
+    locatedAt: at ? at.at : null,
+    distanceKm: at && target ? Math.round(distanceKm(at, target) * 10) / 10 : null,
   };
 }
 
+// The assigned rider's record, for the live position before pickup (order page only).
+const riderAgent = o => (o.agentId && o.riderStatus !== 'requested' && LIVE_STATUSES.includes(o.status) ? store.findById('agents', o.agentId) : null);
+
 // What the customer sees of an order (internal fields like dueAt stay on the server).
-const publicOrder = o => ({
+const publicOrder = (o, agent = null) => ({
   _id: o._id,
   orderNo: o.orderNo,
   placedAt: o.placedAt,
@@ -77,7 +82,7 @@ const publicOrder = o => ({
   address: o.address || null,
   note: o.note || '',
   agentName: o.agentName || null,
-  rider: riderOf(o),
+  rider: riderOf(o, agent),
   dispatchedAt: o.dispatchedAt || null,
   deliveredAt: o.deliveredAt || null,
   cancelledAt: o.cancelledAt || null,
@@ -97,12 +102,13 @@ async function ownOrder(req) {
 router.get('/', async (req, res) => {
   await settleOffers(req.customer._id);
   const orders = await store.find('orders', { customerId: req.customer._id }, { sort: { placedAt: -1 }, limit: 100 });
-  res.json(orders.map(publicOrder));
+  res.json(orders.map(o => publicOrder(o)));
 });
 
 router.get('/:id', async (req, res) => {
   await settleOffers(req.customer._id);
-  res.json(publicOrder(await ownOrder(req)));
+  const order = await ownOrder(req);
+  res.json(publicOrder(order, await riderAgent(order)));
 });
 
 // Everything an order must pass before it's placed or paid for online: the customer, the delivery number and

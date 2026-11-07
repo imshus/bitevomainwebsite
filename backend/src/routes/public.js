@@ -43,6 +43,10 @@ router.get('/config', async (req, res) => {
     maps: config.maps.serverKey
       ? { browserKey: config.maps.browserKey, kitchen: config.maps.kitchen, radiusKm: config.maps.radiusKm || null }
       : null,
+    // The order page's live map: the kitchen's pin (null without KITCHEN_LAT / KITCHEN_LNG) and the OSRM server
+    // its road route comes from (null = a straight line).
+    kitchen: config.maps.kitchen ? { ...config.maps.kitchen, name: config.kitchenName } : null,
+    routing: config.routingUrl || null,
   });
 });
 

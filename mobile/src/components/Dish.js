@@ -17,7 +17,7 @@ export function AddButton({ product, wide }) {
   const cart = useCart();
   const { data: config } = useConfig();
   const qty = cart.qtyOf(product._id);
-  if (!product.isAvailable) return <View style={[st.add, st.soldOut, wide && st.wide]}><Text style={st.soldOutText}>Sold out</Text></View>;
+  if (!product.isAvailable) return <View style={[st.add, st.soldOut, wide && st.wide]}><Text style={st.soldOutText} numberOfLines={1}>Sold out</Text></View>;
   const unlockAt = config?.offers?.storeUnlockAt || 0;
   const moreNeeded = unlockAt && isStoreItem(product) ? Math.max(0, unlockAt - cart.nonStoreTotal) : 0;
   if (!qty && moreNeeded > 0) {
