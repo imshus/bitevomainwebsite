@@ -10,12 +10,14 @@ import { Check, ChefHat, Bike, Star, MapPin, Receipt } from '../components/Icons
 import { StatusPill, useReorder } from './Orders.jsx';
 import { money, formatWhen, formatTime, addressLine, ORDER_STATUS, LIVE_STATUSES } from '../lib/format.js';
 import usePageTitle from '../lib/usePageTitle.js';
+import { useLiveOrders } from '../lib/live.js';
 import { lazyLoad, LazyPart } from '../lib/lazy.js';
 
 // The live map (Leaflet + OpenStreetMap) is its own file, fetched only for an order that's on its way.
 const RiderMap = lazyLoad(() => import('../components/RiderMap.jsx'));
 
-const REFRESH_MS = 5000; // while the order is live, so the kitchen's and the rider's steps show within seconds
+const REFRESH_MS = 5000; // while the order is live and the live socket is down, so steps show within seconds
+const PUSHED_REFRESH_MS = 30000; // while live updates arrive over the WebSocket
 
 const STATUS_NEWS = {
   preparing: 'The kitchen has accepted your order and started cooking!',
@@ -176,13 +178,15 @@ export default function OrderDetail() {
   }, setError);
   useEffect(() => { if (customer) load(); }, [id, customer?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live orders refresh every few seconds while the page is open.
+  // Pushed the moment the kitchen or the rider changes the order (lib/live.js); then the refresh below is only a
+  // safety net. Without the socket, live orders refresh every few seconds while the page is open.
+  const liveUp = useLiveOrders(m => { if (m.type === 'resync' || m.id === id) load(); }, customer?._id);
   const live = order && LIVE_STATUSES.includes(order.status);
   useEffect(() => {
     if (!live) return;
-    const t = setInterval(() => { if (!document.hidden) load(); }, REFRESH_MS);
+    const t = setInterval(() => { if (!document.hidden) load(); }, liveUp ? PUSHED_REFRESH_MS : REFRESH_MS);
     return () => clearInterval(t);
-  }, [live]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [live, liveUp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cancel = async () => {
     if (!window.confirm('Cancel this order?')) return;

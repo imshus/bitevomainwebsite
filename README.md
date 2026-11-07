@@ -182,3 +182,18 @@ which can include real website customers. Use `DEMO_MODE=false` with real custom
   `frontend/.env` from their `.env.example` files, then run `npm install` (installs both folders),
   `npm run build` (builds the website into `frontend/dist`) and `npm start` (starts the API on `PORT`; it
   also serves the built website, so one address hosts both. Restart it after each new build).
+- **Live order status** comes over a WebSocket at `/api/ws` (`backend/src/live.js`): a MongoDB change stream on
+  `orders` tells each signed-in customer's pages the moment the kitchen (admin panel) or the rider (rider app)
+  moves one of their orders, and the page reloads it. It needs MongoDB as a replica set (any Atlas cluster is).
+  Behind nginx, pass the upgrade on, or pages fall back to refreshing every few seconds:
+
+  ```nginx
+  location /api/ws {
+      proxy_pass http://127.0.0.1:4001;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      proxy_set_header Host $host;
+      proxy_read_timeout 1h;
+  }
+  ```

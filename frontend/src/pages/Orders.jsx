@@ -10,6 +10,7 @@ import { Receipt, ChevronRight } from '../components/Icons.jsx';
 import SignInPrompt from '../components/SignInPrompt.jsx';
 import { money, formatWhen, itemsSummary, ORDER_STATUS, LIVE_STATUSES } from '../lib/format.js';
 import usePageTitle from '../lib/usePageTitle.js';
+import { useLiveOrders } from '../lib/live.js';
 
 export function StatusPill({ status }) {
   const s = ORDER_STATUS[status] || { short: status, tone: 'grey' };
@@ -48,6 +49,10 @@ export default function Orders() {
 
   const load = () => { setError(null); api.orders().then(setOrders, setError); };
   useEffect(() => { if (customer) load(); }, [customer?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A new step on any order (lib/live.js) shows at once; the rider's position alone doesn't change the list.
+  useLiveOrders(m => {
+    if (m.type === 'resync' || !orders?.some(o => o._id === m.id && o.status === m.status)) load();
+  }, customer?._id);
 
   return (
     <>

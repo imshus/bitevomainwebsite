@@ -67,10 +67,10 @@ export default defineConfig(({ mode }) => {
 
   // The marketing site runs on 2000 and the admin panel on 2001; this ordering website sits on 2002.
   // In development, API calls go to the website API on 4001, and menu photos the admin panel uploaded
-  // (/uploads/...) come from the admin API on 4000.
+  // (/uploads/...) come from the admin API on 4000. `ws` passes on the live order updates (/api/ws, a WebSocket).
   const API = env.API_PROXY_TARGET || 'http://localhost:4001';
   const ADMIN_API = env.ADMIN_API_PROXY_TARGET || 'http://localhost:4000';
-  const proxy = { '/api': API, '/uploads': ADMIN_API };
+  const proxy = { '/api': { target: API, ws: true }, '/uploads': ADMIN_API };
 
   return {
     plugins: [react(), earlyStart(env.VITE_API_URL || ''), preloadFonts(FIRST_FONTS)],
