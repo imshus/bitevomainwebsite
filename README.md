@@ -52,10 +52,15 @@ production).
 - Pay on delivery, or partly or fully from the BiteVo wallet.
 - Follow the order live (placed → preparing → out for delivery → delivered), cancel it before the
   kitchen accepts it (wallet money is refunded), rate it, and order it again.
-- See the delivery partner on the order page: who it is, and while the order is on its way a live map
-  (Leaflet with OpenStreetMap tiles, no Google key needed) with the rider and the delivery address, the distance,
-  and when the position last updated. The position comes from the rider app (`riderLocation` on the order) and is
-  shown only to that order's customer, only while it's on its way, and only when it's under 3 minutes old.
+- See the delivery partner on the order page: who it is, and once they've accepted, a live map (Leaflet with
+  OpenStreetMap tiles, no Google key needed) like a delivery app's tracking view, in two stages: **picking up**
+  (the road route and distance to the kitchen) and **on the way** (the route and arrival time to the door). The
+  kitchen and home pins are the rider app's; the rider is shown in its blue with a bike and a cone for the
+  direction they're heading. Road routes and times come from an OSRM server (`ROUTING_URL`, by default the public
+  demo server the rider app uses too; a dashed straight line without one). The kitchen pin and the distance to it
+  need `KITCHEN_LAT` / `KITCHEN_LNG` (the same values as the rider app's). The position comes from the rider app
+  (the rider's `location`, and `riderLocation` on the order while it's carried) and is shown only to that order's
+  customer, only while the order is live, and only when it's under 3 minutes old.
 - See wallet balance and history; send a message to support.
 - Refer friends: share a code or link, and earn wallet cashback when a friend completes their first orders.
 

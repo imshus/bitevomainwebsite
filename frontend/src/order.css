@@ -158,7 +158,7 @@ button.btn { font-family: inherit; cursor: pointer; }
 .stepper--sm { height: 32px; border-radius: 8px; box-shadow: none; }
 .stepper--sm button { width: 28px; font-size: 17px; }
 .stepper--sm span { font-size: 14px; }
-.sold-out { font-size: 12.5px; font-weight: 600; color: var(--muted); background: var(--grey-soft); padding: 7px 12px; border-radius: 8px; }
+.sold-out { flex: none; display: inline-block; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: var(--muted); background: var(--grey-soft); padding: 7px 12px; border-radius: 8px; } /* always on one line */
 
 /* Overlays: dialogs and the cart drawer */
 .overlay { position: fixed; inset: 0; z-index: 100; background: rgba(26, 10, 10, .45); display: flex; animation: fadeIn .2s ease; }
@@ -275,7 +275,7 @@ button.btn { font-family: inherit; cursor: pointer; }
 .rider-card__avatar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .rider-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
 .rider-card__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
-.rider-card__top small { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.rider-card__top small { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
 .rider-card__text b { font-size: 17px; }
 .rider-card__text p { margin: 2px 0 0; font-size: 14.5px; color: #444; }
 .rider-card__fresh { margin-top: 4px; color: var(--muted); font-size: 12.5px; }
@@ -289,14 +289,50 @@ button.btn { font-family: inherit; cursor: pointer; }
 .rider-card--wait .rider-card__avatar { background: var(--amber-soft); color: var(--amber); }
 .rider-card--done .rider-card__chip { background: #F1F1F1; color: #555; }
 @media (prefers-reduced-motion: reduce) { .rider-card--live .rider-card__chip i { animation: none; } }
-/* The rider's live map (RiderMap.jsx). `isolation` keeps Leaflet's own stacking under the site header. */
+/* The order's live trip map (RiderMap.jsx), laid out like a delivery app's tracking view. `isolation` keeps
+   Leaflet's own stacking under the site header. */
 .rider-map { margin-top: 14px; }
-.rider-map__map { position: relative; isolation: isolate; height: 220px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: #EEF1F2; }
+.rider-map__frame { position: relative; isolation: isolate; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); }
+.rider-map__map { height: 280px; background: #EEF0F1; font-family: inherit; }
+.rider-map__tiles { filter: saturate(.45) contrast(.96) brightness(1.04); } /* a quieter base map, so the route stands out */
+.rider-map .leaflet-control-attribution { font-size: 10px; background: rgba(255, 255, 255, .8); }
+.rider-map__eta {
+  position: absolute; left: 12px; top: 12px; z-index: 500; margin: 0; display: flex; align-items: baseline; gap: 7px;
+  max-width: calc(100% - 24px); padding: 7px 12px; border-radius: 12px; background: var(--white); box-shadow: 0 4px 14px rgba(0, 0, 0, .16);
+  white-space: nowrap;
+}
+.rider-map__eta b { font-size: 16px; }
+.rider-map__eta span { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.rider-map__recenter {
+  position: absolute; right: 12px; bottom: 26px; z-index: 500; width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer;
+  display: grid; place-items: center; background: var(--white); color: var(--ink); box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+}
+.rider-map__recenter svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .rider-map__open { display: inline-block; margin-top: 8px; font-size: 13.5px; font-weight: 600; color: var(--red); }
-.map-pin { display: grid; place-items: center; border-radius: 50%; box-shadow: 0 3px 10px rgba(0, 0, 0, .25); }
-.map-pin svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.map-pin--rider { background: var(--red); color: var(--white); border: 2px solid var(--white); }
-.map-pin--home { background: var(--white); color: var(--red); border: 2px solid var(--red); }.panel > h2 { margin-bottom: 14px; }
+/* Pins as in the rider app (bitevo-deliveryboy styles.css): drop shapes with an icon; the rider in its blue. */
+.map-icon { background: none; border: 0; }
+.pin {
+  width: 36px; height: 36px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); margin: 1px 0 0 0;
+  display: grid; place-items: center; border: 3px solid var(--white); box-shadow: 0 3px 8px rgba(0, 0, 0, .3);
+}
+.pin span { transform: rotate(45deg); display: grid; place-items: center; }
+.pin--kitchen { background: var(--ink); }
+.pin--drop { background: var(--red); }
+.rider-dot { position: relative; width: 56px; height: 56px; }
+.rider-dot__bike {
+  position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
+  display: grid; place-items: center; background: #1A73E8; border: 3px solid var(--white);
+  box-shadow: 0 0 0 0 rgba(26, 115, 232, .45), 0 2px 8px rgba(0, 0, 0, .3); animation: rider-pulse 2s infinite;
+}
+.rider-dot__cone {
+  position: absolute; inset: 0; display: none; transform: rotate(var(--heading, 0deg));
+  background: conic-gradient(from -28deg at 50% 50%, rgba(26, 115, 232, .38) 0 56deg, transparent 56deg); border-radius: 50%;
+  -webkit-mask: radial-gradient(circle, #000 0 70%, transparent 71%); mask: radial-gradient(circle, #000 0 70%, transparent 71%);
+}
+.rider-dot.has-heading .rider-dot__cone { display: block; }
+@keyframes rider-pulse { 70% { box-shadow: 0 0 0 14px rgba(26, 115, 232, 0), 0 2px 8px rgba(0, 0, 0, .3); } 100% { box-shadow: 0 0 0 0 rgba(26, 115, 232, 0), 0 2px 8px rgba(0, 0, 0, .3); } }
+@media (prefers-reduced-motion: reduce) { .rider-dot__bike { animation: none; } }
+.panel > h2 { margin-bottom: 14px; }
 .panel__head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .panel__icon { width: 38px; height: 38px; border-radius: 12px; background: var(--red-soft); display: grid; place-items: center; flex: none; }
 .panel__icon svg { width: 20px; height: 20px; stroke: var(--red); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -613,6 +649,9 @@ a, button, label, summary { -webkit-tap-highlight-color: transparent; touch-acti
 /* Half / full plate: the price line, the "Half / Full" hint on Add, and the portion chooser */
 .price__half { flex-basis: 100%; color: var(--muted); font-size: 12px; font-weight: 600; }
 .dish__foot > .add-btn, .dish__foot > .stepper { flex: none; } /* the price wraps instead of squeezing these */
+/* "Sold out" stays beside the price on one row, like ADD; a long price (MRP, % off) wraps instead. */
+.dish__foot:has(> .sold-out) { flex-wrap: nowrap; }
+.dish__foot:has(> .sold-out) > .price { min-width: 0; }
 .add-btn--choose { position: relative; }
 /* A ₹1 item before the cart reaches the unlock amount (see AddButton in Dish.jsx) */
 .add-btn.add-btn--locked { display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #8A8A8A; border-color: #DDD; background: #F6F6F6; box-shadow: none; }

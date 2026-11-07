@@ -66,13 +66,21 @@ function RiderCard({ order }) {
       : s === 'placed' ? 'A delivery partner is assigned once the kitchen accepts your order.' : 'We’re assigning a delivery partner for your order.';
   } else if (s === 'out_for_delivery') {
     tone = 'live'; chip = 'On the way'; title = name;
+    // With the map showing, its chip gives the arrival time and road distance; the card doesn't repeat it.
     text = r.distanceKm == null ? `Picked up your order${order.dispatchedAt ? ` at ${formatTime(order.dispatchedAt)}` : ''} and is on the way.`
-      : r.distanceKm < 0.2 ? 'Almost at your door.' : `${r.distanceKm} km away from you.`;
+      : r.distanceKm < 0.2 ? 'Almost at your door.' : r.position ? 'Is on the way to you with your order.' : `${r.distanceKm} km away from you.`;
   } else {
-    tone = 'set'; chip = 'Assigned'; title = name;
-    text = 'Will pick up your order as soon as it’s ready.';
+    // Accepted, before pickup: on the way to the kitchen (or already there) when the rider app shares where they are.
+    tone = 'set'; title = name;
+    const atKitchen = r.distanceKm != null && r.distanceKm < 0.1;
+    chip = !r.position ? 'Assigned' : atKitchen ? 'At kitchen' : 'Picking up';
+    text = !r.position ? 'Will pick up your order as soon as it’s ready.'
+      : atKitchen ? 'Is at the kitchen and will pick up your order as soon as it’s ready.'
+      : r.distanceKm != null ? `Is on the way to the kitchen, ${r.distanceKm} km away from it, to pick up your order.`
+      : 'Is on the way to the kitchen to pick up your order.';
   }
   const home = order.address?.lat != null ? { lat: order.address.lat, lng: order.address.lng } : null;
+  const showMap = r?.position && (tone === 'live' || tone === 'set');
   return (
     <div className={`panel rider-card rider-card--${tone}`}>
       <div className="rider-card__row" aria-live="polite">
@@ -84,11 +92,11 @@ function RiderCard({ order }) {
           </span>
           <b>{title}</b>
           <p>{text}</p>
-          {tone === 'live' && r.locatedAt && <small className="rider-card__fresh">Location updated {ago(r.locatedAt)}</small>}
+          {showMap && r.locatedAt && <small className="rider-card__fresh">Location updated {ago(r.locatedAt)}</small>}
         </div>
       </div>
-      {/* The live map, while the rider app is sending the rider's position. */}
-      {tone === 'live' && r.position && <LazyPart><RiderMap rider={r.position} home={home} /></LazyPart>}
+      {/* The live map, while the rider app is sending the rider's position: to the kitchen, then to you. */}
+      {showMap && <LazyPart><RiderMap rider={r.position} home={home} leg={r.leg} distanceKm={r.distanceKm} /></LazyPart>}
     </div>
   );
 }

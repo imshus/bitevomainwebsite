@@ -83,6 +83,11 @@ export const config = {
       : null,
     radiusKm: num(process.env.DELIVERY_RADIUS_KM, 0),
   },
+  // The kitchen's name on the order page's live map (its pin is at KITCHEN_LAT / KITCHEN_LNG above).
+  kitchenName: (process.env.KITCHEN_NAME || 'BiteVo Kitchen').trim(),
+  // Road routes on the order page's live map, from an OSRM server: the same as the rider app's ROUTING_URL.
+  // The public demo server is for light use; set your own for heavy traffic. Empty = a straight line.
+  routingUrl: (process.env.ROUTING_URL ?? 'https://router.project-osrm.org').trim().replace(/\/+$/, ''),
   // Where the kitchen delivers: these areas of this city (see lib/deliveryArea.js); everywhere else shows
   // "Service unavailable". DELIVERY_AREAS set but empty = no area rule (then the distance above decides).
   delivery: {
