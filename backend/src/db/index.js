@@ -30,6 +30,8 @@ const INDEXES = [
   ['orders', { razorpayOrderId: 1 }, { sparse: true }],
   ['emailCodes', { email: 1, createdAt: -1 }],
   ['supportMessages', { createdAt: -1 }],
+  ['riderApplications', { phone: 1, createdAt: -1 }],
+  ['riderApplications', { status: 1, createdAt: -1 }],
 ];
 
 export async function connectStore() {

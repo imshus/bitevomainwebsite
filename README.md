@@ -105,6 +105,22 @@ them gets ₹100 in their BiteVo wallet.
 - Data: `customers.referralCode` / `referredBy`, and one document per referral in `referrals`
   (`pending` → `rewarded`, or `void`).
 
+## Become a delivery partner
+
+Riders apply online at **`/delivery-partner`** (linked from the footer and the ☰ menu; no sign-in needed). The page
+explains the job (hours, short trips in the delivery areas, the rider app, how it works, what's needed) and has the
+application form: name, mobile number, email (optional), vehicle (the admin panel's vehicle types), vehicle number
+(not for a bicycle), "I have a valid driving licence" (for a bike or scooter), preferred area, preferred hours,
+experience (optional) and "I'm 18 or older".
+
+- API: `GET /api/rider-applications/options` (vehicle types, areas, shifts) and `POST /api/rider-applications`
+  (`backend/src/routes/riderApplications.js`). It refuses a number that already belongs to a delivery agent or
+  that has an application still under review, allows five successful applications an hour from one address, and
+  quietly drops forms that fill in a hidden spam-trap field.
+- Applications are saved in `riderApplications` with `status: 'new'`. The team reviews them on the admin panel's
+  **Rider applications** page: call the applicant, then approve (adds them as a delivery agent with the ID check
+  pending; they sign in to the rider app with the same number) or turn the application down.
+
 ## Continue with Google
 
 The sign-in sheet shows Google's "Continue with Google" button when `GOOGLE_CLIENT_ID` is set in
@@ -159,6 +175,8 @@ and printed in the API log. To go live, connect a provider in `backend/src/lib/s
 | `sessions`, `loginEvents` | writes | `role: 'customer'`, shown on the panel's Login status page (and revocable there) |
 | `otpCodes`, `supportMessages` | writes | Website only |
 | `referrals` | reads/writes | Website only (refer & earn); rewards go into `walletTxns` as `cashback` |
+| `riderApplications` | writes | "Become a delivery partner"; reviewed on the panel's Rider applications page |
+| `agents` | reads | Only to refuse an application from a number that's already a rider |
 
 Prices, availability, coupon checks and wallet balances are always worked out on the server.
 Cashback is credited by the admin panel when an order is marked delivered.

@@ -76,6 +76,9 @@ export const api = {
   menu: () => early('/menu'),
   offers: () => get('/offers', { quiet401: true }),
   support: message => post('/support', message),
+  // "Become a delivery partner" (no sign-in needed).
+  riderJobOptions: () => get('/rider-applications/options'),
+  applyAsRider: application => post('/rider-applications', application),
 
   sendOtp: phone => post('/auth/otp', { phone }),
   verifyOtp: (phone, code, googleTicket) => post('/auth/verify', { phone, code, ...(googleTicket && { googleTicket }) }, { quiet401: true }),

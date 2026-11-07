@@ -460,6 +460,25 @@ em { font-family: "Playfair Display", Georgia, serif; font-style: italic; color:
 .form textarea { resize: vertical; min-height: 120px; }
 .form input:focus, .form select:focus, .form textarea:focus { outline: none; border-color: var(--red); box-shadow: 0 0 0 4px rgba(183, 28, 28, .12); }
 .form .btn { width: 100%; cursor: pointer; font-family: inherit; }
+.form__optional { font-style: normal; font-weight: 400; color: var(--muted); }
+.form .form__check { display: flex; align-items: flex-start; gap: 10px; font-size: 14.5px; font-weight: 500; cursor: pointer; }
+.form .form__check input { width: 18px; height: 18px; flex: none; margin: 2px 0 0; padding: 0; accent-color: var(--red); }
+
+/* Become a delivery partner (pages/DeliveryPartner.jsx) */
+.partner-perks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: -32px; position: relative; }
+.partner-perk { background: var(--white); border: 1px solid var(--line); border-radius: 20px; padding: 24px 22px; box-shadow: 0 10px 30px rgba(120, 20, 20, .06); }
+.partner-perk__icon { width: 48px; height: 48px; border-radius: 14px; background: var(--red); display: grid; place-items: center; margin-bottom: 14px; }
+.partner-perk__icon svg { width: 24px; height: 24px; stroke: var(--white); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.partner-perk h3 { font-size: 17px; margin-bottom: 6px; }
+.partner-perk p { color: var(--muted); font-size: 14.5px; margin: 0; }
+.partner-how { padding: 80px 0 0; text-align: center; }
+.partner-how h2 { margin-bottom: 40px; }
+.partner-apply { padding-top: 72px; }
+.partner-needs { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 14px; }
+.partner-needs li { display: flex; align-items: flex-start; gap: 10px; font-size: 15.5px; }
+.partner-needs svg { width: 20px; height: 20px; flex: none; margin-top: 2px; stroke: var(--green); stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 980px) { .partner-perks { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .partner-perks { grid-template-columns: 1fr; gap: 12px; } .partner-how { padding-top: 56px; } .partner-apply { padding-top: 48px; } }
 .form__note { font-size: 13px; color: var(--muted); margin: 12px 0 0; text-align: center; }
 
 /* Reveal on scroll */

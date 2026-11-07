@@ -24,8 +24,9 @@ const About = lazyLoad(() => import('./pages/About.jsx'));
 const Support = lazyLoad(() => import('./pages/Support.jsx'));
 const Privacy = lazyLoad(() => import('./pages/Privacy.jsx'));
 const Terms = lazyLoad(() => import('./pages/Terms.jsx'));
+const DeliveryPartner = lazyLoad(() => import('./pages/DeliveryPartner.jsx'));
 
-const PAGES = { checkout: Checkout, orders: Orders, account: Account, wallet: Wallet, refer: Refer, about: About, support: Support, privacy: Privacy, terms: Terms };
+const PAGES = { checkout: Checkout, orders: Orders, account: Account, wallet: Wallet, refer: Refer, about: About, support: Support, privacy: Privacy, terms: Terms, 'delivery-partner': DeliveryPartner };
 const pageFor = pathname => {
   const [first, second] = pathname.split('/').filter(Boolean);
   return first === 'orders' && second ? OrderDetail : PAGES[first];
@@ -104,6 +105,7 @@ export default function App() {
                 <Route path="/r/:code" element={<InviteRoute />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/support" element={<Support />} />
+                <Route path="/delivery-partner" element={<DeliveryPartner />} />
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="*" element={<NotFound />} />

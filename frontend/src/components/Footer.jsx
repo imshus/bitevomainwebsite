@@ -18,7 +18,7 @@ const SOCIAL = [
 
 const COLUMNS = [
   { title: 'Order', links: [['/', 'Menu'], ['/orders', 'My orders'], ['/wallet', 'Wallet'], ['/refer', 'Refer & earn']] },
-  { title: 'Company', links: [['/about', 'About us'], ['/support', 'Help & support'], ['/account', 'My account']] },
+  { title: 'Company', links: [['/about', 'About us'], ['/delivery-partner', 'Become a delivery partner'], ['/support', 'Help & support'], ['/account', 'My account']] },
   { title: 'Legal', links: [['/privacy', 'Privacy policy'], ['/terms', 'Terms of service']], inline: true },
 ];
 
