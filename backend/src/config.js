@@ -25,6 +25,19 @@ const list = value => (value || '').split(',').map(s => s.trim()).filter(Boolean
 const SITE_ORIGINS = ['https://bitevo.in', 'https://www.bitevo.in'];
 const num = (value, fallback) => (value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : fallback);
 
+// A latitude or longitude: decimal ("28.4475"), or degrees, minutes and seconds as Google Maps shows them
+// (28°26'51.0"N, 77°04'12.0"E; S and W are negative). Null for anything else. (parseFloat alone read
+// 28°26'51.0"N as 28, putting the kitchen some 50 km away, so every address failed the delivery-radius check.)
+function coordinate(value) {
+  const m = String(value ?? '').trim()
+    .match(/^(-?)(\d+(?:\.\d+)?)\s*°?\s*(?:(\d+(?:\.\d+)?)\s*['′’]\s*)?(?:(\d+(?:\.\d+)?)\s*(?:"|″|”|'')\s*)?([NSEW])?$/i);
+  if (!m) return null;
+  const n = (Number(m[2]) + (Number(m[3]) || 0) / 60 + (Number(m[4]) || 0) / 3600) * (m[1] || /[SW]/i.test(m[5] || '') ? -1 : 1);
+  return Number.isFinite(n) ? Math.round(n * 1e6) / 1e6 : null;
+}
+const kitchenLat = coordinate(process.env.KITCHEN_LAT);
+const kitchenLng = coordinate(process.env.KITCHEN_LNG);
+
 // `--port 4001` on the command line wins over PORT (the dev script pins the API to 4001).
 const argPort = Number(process.argv[process.argv.indexOf('--port') + 1] || 0) || 0;
 
@@ -78,9 +91,7 @@ export const config = {
     browserKey: (process.env.GOOGLE_MAPS_BROWSER_KEY || process.env.GOOGLE_MAPS_KEY || '').trim(),
     // Optional: the kitchen's position and how far it delivers. Addresses further away are refused,
     // and searches favour places near the kitchen. Leave empty to skip the distance check.
-    kitchen: Number.isFinite(parseFloat(process.env.KITCHEN_LAT)) && Number.isFinite(parseFloat(process.env.KITCHEN_LNG))
-      ? { lat: parseFloat(process.env.KITCHEN_LAT), lng: parseFloat(process.env.KITCHEN_LNG) }
-      : null,
+    kitchen: kitchenLat != null && kitchenLng != null ? { lat: kitchenLat, lng: kitchenLng } : null,
     radiusKm: num(process.env.DELIVERY_RADIUS_KM, 0),
   },
   // The kitchen's name on the order page's live map (its pin is at KITCHEN_LAT / KITCHEN_LNG above).
