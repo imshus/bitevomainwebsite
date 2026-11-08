@@ -182,17 +182,6 @@
 .co-pay__btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(183, 28, 28, .35); }
 .co-pay__btn:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
 
-/* "Pay using" sheet */
-.co-paysheet h2 { margin: 0 0 16px; font-size: 20px; }
-.co-payopt {
-  display: flex; align-items: center; gap: 12px; padding: 14px; margin-bottom: 10px; border: 1.5px solid var(--line);
-  border-radius: 14px; cursor: pointer; transition: border-color .2s, background .2s;
-}
-.co-payopt input { width: 18px; height: 18px; margin: 0; accent-color: var(--red); flex: none; }
-.co-payopt span { display: flex; flex-direction: column; line-height: 1.35; }
-.co-payopt small { font-size: 13px; color: var(--muted); }
-.co-payopt.is-selected { border-color: var(--red); background: var(--red-tint); }
-
 /* "Deliver to" sheet */
 .co-addr-sheet h2 { margin: 0 0 16px; font-size: 20px; }
 .co-addr-sheet .addresses { margin-bottom: 14px; }
@@ -211,4 +200,64 @@
   .co-pay__btn { height: 52px; font-size: 16px; flex-basis: 200px; }
   .co-pay__using b { font-size: 14.5px; }
   .co-strip { font-size: 13px; padding: 9px 12px; }
+}
+
+/* ===================================================================================
+   Payment page (components/PaymentPage.jsx, /checkout?step=pay): the bill total, then every way to pay as
+   tappable rows grouped by kind, and "Pay ₹…" pinned to the bottom.
+   =================================================================================== */
+.pp-head { background: var(--white); padding: 14px 0 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
+.pp-head__row, .pp-body { width: min(640px, 100% - 24px); margin-inline: auto; }
+.pp-head__row { display: flex; align-items: center; gap: 10px; }
+.pp-head__text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.pp-head__text h1 { margin: 0; font-size: 19px; }
+.pp-head__text small { font-size: 13px; color: var(--muted); }
+.pp-safe { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; background: #E8F5EC; color: #1E7B34; font-size: 12.5px; font-weight: 700; }
+.pp-safe svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.pp-body { padding: 14px 0 24px; display: flex; flex-direction: column; gap: 12px; }
+.pp-card { background: var(--white); border-radius: 18px; padding: 14px 14px 6px; box-shadow: 0 1px 2px rgba(0, 0, 0, .04); }
+.pp-label { margin: 2px 4px 8px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* The bill total */
+.pp-total { display: flex; align-items: center; gap: 16px; padding: 16px; }
+.pp-total > div { display: flex; flex-direction: column; line-height: 1.15; padding-right: 16px; border-right: 1px dashed var(--line); }
+.pp-total small { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.pp-total b { font-size: 26px; }
+.pp-total p { margin: 0; display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; color: #444; }
+.pp-total__save { color: #1E7B34; font-weight: 700; }
+.pp-total__wallet { display: inline-flex; align-items: center; gap: 5px; color: #1E7B34; font-weight: 600; }
+.pp-total__wallet svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* One way to pay */
+.pp-opt {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 6px; margin: 0; border: 0;
+  border-top: 1px solid #F1EAEA; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+  border-radius: 12px; transition: background .15s;
+}
+.pp-label + .pp-opt { border-top: 0; }
+.pp-opt:hover { background: #FBF6F6; }
+.pp-opt:focus-visible { outline: 2px solid var(--red); outline-offset: 1px; }
+.pp-opt.is-on { background: var(--red-tint); }
+.pp-opt__text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.pp-opt__text b { font-size: 15.5px; font-weight: 700; }
+.pp-opt__text small { font-size: 12.5px; color: var(--muted); }
+.pp-radio { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #CFCFCF; display: grid; place-items: center; transition: border-color .15s; }
+.pp-opt.is-on .pp-radio { border-color: var(--red); }
+.pp-opt.is-on .pp-radio::after { content: ''; width: 11px; height: 11px; border-radius: 50%; background: var(--red); }
+
+/* Badges: UPI apps' initials in their colours, icons for the rest */
+.pp-mark {
+  flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+  font-size: 15px; font-weight: 800; letter-spacing: -.02em; border: 1px solid #ECE5E5;
+}
+.pp-mark--upi { background: #fff; color: #097939; font-size: 11.5px; font-style: italic; letter-spacing: .02em; }
+.pp-mark--icon { background: var(--red-soft); border-color: transparent; }
+.pp-mark--icon svg { width: 21px; height: 21px; fill: none; stroke: var(--red); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+.pp-secure { margin: 2px 6px 0; display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.pp-secure svg { flex: none; width: 17px; height: 17px; fill: none; stroke: #1E7B34; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pp-bar__using { cursor: default; }
+
+@media (max-width: 420px) {
+  .pp-total b { font-size: 23px; }
 }

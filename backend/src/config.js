@@ -25,6 +25,16 @@ const list = value => (value || '').split(',').map(s => s.trim()).filter(Boolean
 const SITE_ORIGINS = ['https://bitevo.in', 'https://www.bitevo.in'];
 const num = (value, fallback) => (value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : fallback);
 
+// The sender of customer emails: MAIL_FROM as given when it has an address; a name alone, or nothing, is paired
+// with the mailbox's address (SMTP_USER).
+function mailFrom(from, user) {
+  const name = String(from || '').trim().replace(/^"(.*)"$/, '$1');
+  const address = String(user || '').trim();
+  if (name.includes('@')) return name;
+  if (!address) return name;
+  return `${name || 'BiteVo'} <${address}>`;
+}
+
 // A latitude or longitude: decimal ("28.4475"), or degrees, minutes and seconds as Google Maps shows them
 // (28°26'51.0"N, 77°04'12.0"E; S and W are negative). Null for anything else. (parseFloat alone read
 // 28°26'51.0"N as 28, putting the kitchen some 50 km away, so every address failed the delivery-radius check.)
@@ -142,7 +152,9 @@ export const config = {
     port: num(process.env.SMTP_PORT, 465),
     user: (process.env.SMTP_USER || '').trim(),
     pass: process.env.SMTP_PASS || '',
-    from: process.env.MAIL_FROM || (process.env.SMTP_USER ? `BiteVo <${process.env.SMTP_USER.trim()}>` : ''),
+    // "BiteVo <hello@bitevo.in>". A name alone ("BiteVo") gets the mailbox address added, since mail servers
+    // refuse a sender without an address.
+    from: mailFrom(process.env.MAIL_FROM, process.env.SMTP_USER),
   },
   // Refer & earn: a new customer signs up with a friend's code; once they have this many orders
   // delivered, the friend who invited them gets the reward in their wallet (as cashback).

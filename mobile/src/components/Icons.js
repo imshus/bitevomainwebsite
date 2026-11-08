@@ -25,4 +25,7 @@ export const Home = p => <Icon {...p}><Path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1
 export const Tag = p => <Icon {...p}><Path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" /><Circle cx="7.5" cy="7.5" r="1.5" /></Icon>;
 export const Alert = p => <Icon {...p}><Circle cx="12" cy="12" r="9" /><Path d="M12 8v5M12 16h.01" /></Icon>;
 export const Back = p => <Icon {...p}><Path d="M19 12H5M12 19l-7-7 7-7" /></Icon>;
+export const Shield = p => <Icon {...p}><Path d="M12 3 4 6v6c0 5 3.4 8.3 8 9 4.6-.7 8-4 8-9V6l-8-3Z" /><Path d="m9 12 2 2 4-4" /></Icon>;
+export const CardIcon = p => <Icon {...p}><Rect x="2.5" y="5" width="19" height="14" rx="2.5" /><Path d="M2.5 10h19M6 15h4" /></Icon>;
+export const Cash = p => <Icon {...p}><Rect x="2.5" y="6" width="19" height="12" rx="2" /><Circle cx="12" cy="12" r="2.6" /><Path d="M6 9.5v.01M18 14.5v.01" /></Icon>;
 export const Bike = p => <Icon {...p}><Circle cx="5.5" cy="17" r="3.5" /><Circle cx="18.5" cy="17" r="3.5" /><Path d="M5.5 17 9 9h5l4.5 8M14 9l-2-4h-2M9 9l3 8" /></Icon>;

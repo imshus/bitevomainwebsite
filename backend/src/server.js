@@ -7,6 +7,7 @@ import { seedStarterMenu } from './demo/starterMenu.js';
 import { startReferralChecks } from './lib/referrals.js';
 import { startOfferChecks } from './lib/offers.js';
 import { startPaymentChecks } from './lib/razorpay.js';
+import { startInvoiceEmails } from './lib/invoiceMail.js';
 import { startLive } from './live.js';
 
 // Opens the database, trying again for about two minutes if the network or DNS has a hiccup (a failed start
@@ -58,6 +59,7 @@ if (config.otpDevMode) console.log('OTP dev mode: sign-in codes are shown on scr
 startReferralChecks();
 startOfferChecks();
 startPaymentChecks();
+startInvoiceEmails(); // each delivered order's invoice, by email
 
 const server = createApp().listen(config.port, () => {
   console.log(`BiteVo website API listening on http://localhost:${config.port}`);

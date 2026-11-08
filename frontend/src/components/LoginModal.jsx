@@ -168,6 +168,7 @@ export default function LoginModal({ reason, existing, onDone }) {
             {sent.email ? 'We emailed' : 'We sent'} a 6-digit code to <b>{sent.phone || sent.email}</b>{sent.phone && !sent.devCode ? ' on WhatsApp or SMS' : ''}.{' '}
             <button type="button" className="link" onClick={() => setStep(sent.email ? 'email' : 'phone')}>Change</button>
           </p>
+          {sent.emailedTo && <p className="login__lead">We also emailed a code to <b>{sent.emailedTo}</b>. Either code works.</p>}
           {sent.devCode && (
             <div className="dev-code">
               <span>Test mode — no {sent.email ? 'email' : 'WhatsApp or SMS'} is sent. Your code is <b>{sent.devCode}</b></span>

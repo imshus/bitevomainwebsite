@@ -68,7 +68,12 @@ production).
   current as the rider gets nearer; without a route, the distance on city roads at about 22 km/h. The map's chip
   shows the ride the rider is on now (to the kitchen, then to the door).
 - See wallet balance and history; send a message to support.
-- **Pay online** with Razorpay (UPI, cards, netbanking) on the website and in the app, or cash on delivery.
+- **Payment page** (`/checkout?step=pay`, `frontend/src/components/PaymentPage.jsx`; the app's Payment screen):
+  after the cart, "Proceed to pay" opens a page with the bill total and every way to pay: Google Pay, PhonePe,
+  Paytm and other UPI apps (on a computer, a UPI QR code instead), credit/debit cards, wallets, and cash
+  on delivery, with the way paid last time under "Recently used". "Pay ₹…" opens Razorpay's checkout straight on
+  the chosen method (Razorpay `config.display`, `frontend/src/lib/payMethods.js`).
+- **Pay online** with Razorpay on the website and in the app, or cash on delivery.
   The keys are `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` in `backend/.env` (or the admin panel's names,
   `ROZERPAY_API` / `ROZERPAY_SECRET`); without them checkout offers cash on delivery and the wallet only.
   An online order is placed only after the server has checked the payment's signature and the payment itself
@@ -163,6 +168,13 @@ To set it up: Google Cloud console → APIs & Services → Credentials → Creat
 `AUTH_SECRET`. The OAuth consent screen needs your app name, logo and support email before going public.
 
 ## Emails (Hostinger)
+
+What goes out by email (only when `SMTP_USER` and `SMTP_PASS` are set; without them nothing is sent):
+- A welcome email, and an order confirmation with a link to the invoice.
+- **The invoice once the order is delivered** (`backend/src/lib/invoiceMail.js`, checked every 2 minutes): the
+  bill, a "Download invoice (PDF)" button and the invoice attached. Needs an email address on the account.
+- **Sign-in codes**: signing in with an email address, and, when signing in with a mobile number whose account
+  has an email address, the code goes to that email too (either code works; the sign-in screen says so).
 
 Customers who have an email address (all Google sign-ins, and anyone who adds one in My Account) get a
 welcome email and an order confirmation for each order, sent from your Hostinger mailbox. In

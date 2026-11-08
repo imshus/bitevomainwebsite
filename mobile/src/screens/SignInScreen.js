@@ -120,6 +120,7 @@ export default function SignInScreen({ navigation }) {
           <View style={st.step}>
             <Text style={st.h}>Enter the code</Text>
             <Text style={st.lead}>We sent a 6-digit code to {sent.email || `+91 ${sent.phone?.replace(/^\+?91/, '')}`}.</Text>
+            {sent.emailedTo ? <Text style={st.lead}>We also emailed a code to {sent.emailedTo}. Either code works.</Text> : null}
             {sent.devCode ? <Text style={st.dev}>Test mode: your code is {sent.devCode}</Text> : null}
             <TextInput
               ref={codeInput} value={code} onChangeText={onCode} placeholder="••••••" placeholderTextColor={C.faint} autoFocus

@@ -9,6 +9,7 @@ import { AuthProvider } from './src/state/auth';
 import { CartProvider, useCart } from './src/state/cart';
 import MenuScreen from './src/screens/MenuScreen';
 import CheckoutScreen from './src/screens/CheckoutScreen';
+import PaymentScreen from './src/screens/PaymentScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import { AddressesScreen, AddressFormScreen } from './src/screens/AddressScreens';
 import { OrdersScreen, OrderDetailScreen } from './src/screens/OrderScreens';
@@ -56,6 +57,7 @@ export default function App() {
             <Stack.Navigator screenOptions={header}>
               <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
               <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
+              <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Payment options' }} />
               <Stack.Screen name="SignIn" component={SignInScreen} options={{ title: 'Sign in', presentation: 'modal' }} />
               <Stack.Screen name="Addresses" component={AddressesScreen} options={{ title: 'Deliver to' }} />
               <Stack.Screen name="AddressForm" component={AddressFormScreen} options={({ route }) => ({ title: route.params?.address ? 'Edit address' : 'Add address' })} />

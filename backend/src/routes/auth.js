@@ -83,9 +83,11 @@ async function issueCode(collection, field, to, deliver, { remote = false } = {}
   return code;
 }
 
-// Is this the right code? Local codes are compared by hash; MiniMoth's are checked with MiniMoth.
+// Is this the right code? Local codes are compared by hash; MiniMoth's are checked with MiniMoth. A phone code
+// that was also emailed (the account has an email address) has its emailed code's hash too: either one works.
 async function codeMatches(latest, to, code) {
   if (code.length !== 6) return 'wrong';
+  if (latest.emailCodeHash && codeHash(to, code) === latest.emailCodeHash) return 'ok';
   if (!latest.remote) return codeHash(to, code) === latest.codeHash ? 'ok' : 'wrong';
   return checkPhoneCode(to, code);
 }
@@ -128,13 +130,36 @@ router.post('/otp', sendLimiter, async (req, res) => {
     if (err.reason) await logAttempt(req, phone, existing, false, `Code not sent: ${err.reason}`).catch(() => {});
     throw err;
   }
+  // An existing account with an email address gets the code by email too (when the mailbox is set up): the
+  // same code in test mode; with MiniMoth, which keeps its code to itself, a second code that works as well.
+  const emailedTo = existing?.email && mailEnabled()
+    ? await Promise.race([
+      emailPhoneCode(phone, existing, code).catch(err => { console.error(`Sign-in code email failed: ${err.message}`); return null; }),
+      new Promise(resolve => { setTimeout(resolve, 5000, null); }),
+    ])
+    : null;
   res.json({
     phone,
     isNew: !existing,
     resendAfterSecs: RESEND_AFTER_MS / 1000,
+    ...(emailedTo && { emailedTo }),
     ...(config.otpDevMode ? { devCode: code } : {}),
   });
 });
+
+// "p****a@gmail.com"
+const maskEmail = email => email.replace(/^(.)(.*)(.@)/, (m, a, mid, b) => `${a}${'*'.repeat(Math.min(6, mid.length))}${b}`);
+
+async function emailPhoneCode(phone, customer, code) {
+  let mailCode = code;
+  if (!mailCode) {
+    mailCode = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    const [latest] = await store.find('otpCodes', { phone, usedAt: null }, { sort: { createdAt: -1 }, limit: 1 });
+    if (!latest) return null;
+    await store.update('otpCodes', latest._id, { emailCodeHash: codeHash(phone, mailCode) });
+  }
+  return (await sendMail(signInCodeEmail(customer.email, mailCode))) ? maskEmail(customer.email) : null;
+}
 
 router.post('/verify', verifyLimiter, async (req, res) => {
   const phone = requirePhone(req.body);

@@ -4,7 +4,7 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 import { money } from './rules.js';
-import { invoicePath } from './invoice.js';
+import { invoicePath, invoiceHtml, invoiceNo } from './invoice.js';
 
 let transport = null;
 export const mailEnabled = () => Boolean(config.mail.user && config.mail.pass);
@@ -18,6 +18,10 @@ function getTransport() {
       port: config.mail.port,
       secure: config.mail.port === 465, // 465 = SSL (Hostinger's default); 587 = STARTTLS
       auth: { user: config.mail.user, pass: config.mail.pass },
+      // A slow or unreachable mailbox gives up quickly instead of after minutes (sign-in waits for its email).
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
     });
   }
   return transport;
@@ -26,14 +30,14 @@ function getTransport() {
 // For tests: send through any nodemailer transport instead of SMTP.
 export function setTransport(t) { transport = t; }
 
-export function sendMail({ to, subject, html, text }) {
+export function sendMail({ to, subject, html, text, attachments }) {
   if (!to) return Promise.resolve(false);
   if (!mailEnabled() && !transport) {
     console.log(`[mail] Not sent (SMTP not set up): "${subject}" to ${to}`);
     return Promise.resolve(false);
   }
   return getTransport()
-    .sendMail({ from: config.mail.from || config.mail.user, to, subject, html, text })
+    .sendMail({ from: config.mail.from || config.mail.user, to, subject, html, text, ...(attachments && { attachments }) })
     .then(() => true, err => { console.error(`[mail] Could not send "${subject}" to ${to}: ${err.message}`); return false; });
 }
 
@@ -111,5 +115,39 @@ export function orderEmail(customer, order, { apiBase } = {}) {
       + p(`<a href="${esc(invoice)}" style="color:#B71C1C;font-weight:bold">Download your invoice</a> (the full bill, to save as a PDF)`),
       { href: `${config.siteUrl}/orders/${order._id}`, label: 'Track your order' }),
     text: `Order ${order.orderNo} placed. Total ${money(order.total)}. Track it: ${config.siteUrl}/orders/${order._id} · Invoice: ${invoice}`,
+  };
+}
+
+// The invoice, once the order is delivered (lib/invoiceMail.js): the bill in the email, a link to the invoice
+// page (Save as PDF there) and the invoice itself attached as a page that opens in any browser.
+export function invoiceEmail(customer, order, { apiBase } = {}) {
+  const rows = order.items.map(i => `<tr><td style="padding:6px 0;font-size:14px;color:#333">${esc(i.qty)} × ${esc(i.name)}</td><td align="right" style="padding:6px 0;font-size:14px;color:#333">${i.free ? 'FREE' : money(i.price * i.qty)}</td></tr>`).join('');
+  const line = (label, value, bold) => `<tr><td style="padding:4px 0;font-size:14px;color:${bold ? '#1A1A1A' : '#666'};${bold ? 'font-weight:bold' : ''}">${label}</td><td align="right" style="padding:4px 0;font-size:14px;${bold ? 'font-weight:bold' : 'color:#666'}">${value}</td></tr>`;
+  // The invoice page needs this API's public address (API_PUBLIC_URL); without it, the order on the website,
+  // which has the Invoice button.
+  const base = apiBase || config.apiUrl;
+  const link = base ? `${base}${invoicePath(order._id, 90)}` : `${config.siteUrl}/orders/${order._id}`;
+  const no = invoiceNo(order);
+  return {
+    to: customer.email,
+    subject: `Your BiteVo invoice ${no} · ${money(order.total)}`,
+    html: layout(`Your invoice for order #${order.orderNo}`,
+      p(`Thanks for ordering from BiteVo, ${esc(firstName(customer.name))}! Your invoice <b>${esc(no)}</b> is attached, and here’s the bill.`)
+      + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 12px;border-top:1px solid #F0E1E1;border-bottom:1px solid #F0E1E1">${rows}</table>`
+      + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">`
+      + line('Item total', money(order.subtotal))
+      + line('Delivery', order.deliveryFee ? money(order.deliveryFee) : 'Free')
+      + (order.discount ? line(`Offer${order.couponCode ? ` (${esc(order.couponCode)})` : ''}`, `−${money(order.discount)}`) : '')
+      + (order.walletUsed > 0 ? line('Paid from wallet', money(order.walletUsed)) : '')
+      + (order.payment?.provider === 'razorpay' ? line(`Paid online (${esc(order.paymentMethod || 'Razorpay')})`, money(order.payment.amount)) : '')
+      + line('Total', money(order.total), true)
+      + `</table>`,
+      { href: link, label: base ? 'Download invoice (PDF)' : 'View your order and invoice' }),
+    text: `Your BiteVo invoice ${no} for order ${order.orderNo}: total ${money(order.total)}. Download it: ${link}`,
+    attachments: [{
+      filename: `BiteVo-invoice-${order.orderNo}.html`,
+      content: invoiceHtml(order, { nonce: 'bitevo-invoice' }),
+      contentType: 'text/html; charset=utf-8',
+    }],
   };
 }

@@ -1,9 +1,9 @@
 // Checkout: the cart, where to deliver (with "Service unavailable" outside the delivery area), offers and the
-// wallet, a note for the kitchen, how to pay, then the bill the server works out and "Pay" / "Place order".
-// Paying online (when the API has Razorpay set up, as on the website): POST /orders/pay gives a Razorpay order,
-// Razorpay's checkout takes the payment (components/RazorpayCheckout.js), then POST /orders places the order
-// with the payment, which the server checks with Razorpay first. Otherwise cash on delivery or the wallet.
-import { useEffect, useRef, useState } from 'react';
+// wallet, a note for the kitchen, then the bill the server works out. When the API has Razorpay set up (as on
+// the website), "Proceed to pay" opens the payment screen (screens/PaymentScreen.js: UPI apps, cards,
+// netbanking, wallets or cash on delivery); otherwise, or when the wallet pays it all, "Place order".
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
@@ -14,7 +14,8 @@ import { useChosenAddress } from '../state/address';
 import { addressLine, money, offerHeadline } from '../lib/format';
 import { deliversTo, whereWeDeliver } from '../lib/deliveryArea';
 import { Button, Card, Empty, VegMark } from '../components/ui';
-import RazorpayCheckout from '../components/RazorpayCheckout';
+import { payLabel, rememberedChoice } from '../lib/payMethods';
+import { DELIVERY_MINS } from '../config';
 import { Bag, ChevronRight, MapPin, Receipt, Tag, Wallet } from '../components/Icons';
 import { C, R } from '../theme';
 
@@ -70,8 +71,7 @@ export default function CheckoutScreen({ navigation }) {
   const [offers, setOffers] = useState([]);
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState('');
-  const [payBy, setPayBy] = useState('online'); // 'online' | 'cod'
-  const [paying, setPaying] = useState(null); // { pay, body } while Razorpay's checkout is open
+  const [lastPay, setLastPay] = useState(null); // how this phone paid last time, for the pay bar
   const signedIn = Boolean(customer?.name);
   const needsPhone = signedIn && !customer.phone;
   const phoneOk = /^[6-9]\d{9}$/.test(deliveryPhone.replace(/\D/g, ''));
@@ -79,7 +79,9 @@ export default function CheckoutScreen({ navigation }) {
   const served = !address || deliversTo(address, config);
   const onlineOk = Boolean(config?.razorpay);
   const paidByWallet = quote?.payable === 0 && quote?.walletUsed > 0;
-  const payingOnline = onlineOk && payBy === 'online' && quote?.payable > 0;
+  const canChoosePay = onlineOk && quote?.payable > 0;
+  // The bill may have changed after a visit to the payment screen; and pick up the way paid last time.
+  useFocusEffect(useCallback(() => { rememberedChoice().then(setLastPay); }, []));
 
   useEffect(() => { api.offers().then(setOffers, () => setOffers([])); }, [customer?._id]);
   useEffect(() => {
@@ -115,12 +117,16 @@ export default function CheckoutScreen({ navigation }) {
       note: [note.trim(), noCutlery && 'No cutlery please'].filter(Boolean).join(' · ').slice(0, 200),
       ...(needsPhone && { deliveryPhone: deliveryPhone.replace(/\D/g, '') }),
     };
+    if (canChoosePay) {
+      // How to pay is chosen on the payment screen, which places the order.
+      setPlacing(false);
+      navigation.navigate('Payment', {
+        body, quote, itemCount: cart.lines.reduce((n, l) => n + l.qty, 0),
+        where: `Delivering in ${DELIVERY_MINS} mins to ${address.label || 'your address'}`,
+      });
+      return;
+    }
     try {
-      if (payingOnline) {
-        // Razorpay takes the payment first; the order is placed once it's in (onPaid below).
-        setPaying({ pay: await api.payOnline(body), body });
-        return;
-      }
       placed(await api.placeOrder(body));
     } catch (err) {
       failed(err);
@@ -139,17 +145,6 @@ export default function CheckoutScreen({ navigation }) {
     setPlacing(false);
   };
 
-  // Razorpay's checkout is done: place the order with the payment, or say why it wasn't paid.
-  const onPaid = async result => {
-    const { body } = paying;
-    setPaying(null);
-    if (result.type !== 'paid') { setPlaceError(result.description); setPlacing(false); return; }
-    try {
-      placed(await api.placeOrder({ ...body, payment: { orderId: result.orderId, paymentId: result.paymentId, signature: result.signature } }));
-    } catch (err) {
-      failed(err);
-    }
-  };
 
   const blocker = !served ? `Service unavailable at this address. ${whereWeDeliver(config)}`
     : !quote ? null
@@ -161,7 +156,7 @@ export default function CheckoutScreen({ navigation }) {
   const action = !signedIn ? { label: 'Sign in to order', run: () => navigation.navigate('SignIn') }
     : !address ? { label: 'Add delivery address', run: () => navigation.navigate('AddressForm') }
     : !served ? { label: 'Change address', run: () => navigation.navigate('Addresses') }
-    : { label: !quote ? 'Place order' : payingOnline ? `Pay ${money(quote.payable)}` : `Place order · ${money(quote.payable)}`, run: place };
+    : { label: !quote ? 'Place order' : canChoosePay ? `Proceed to pay ${money(quote.payable)}` : `Place order · ${money(quote.payable)}`, run: place };
   const actionDisabled = signedIn && address && served ? placing || !quote || Boolean(blocker) : false;
 
   return (
@@ -266,23 +261,6 @@ export default function CheckoutScreen({ navigation }) {
             )}
           </Card>
         )}
-        {onlineOk && quote && !paidByWallet && (
-          <Card style={{ gap: 4 }}>
-            <View style={st.cardHead}><Wallet size={20} color={C.red} /><Text style={st.cardTitle}>Pay using</Text></View>
-            {[
-              { key: 'online', title: 'Pay online', text: 'UPI, cards, netbanking (secured by Razorpay)' },
-              { key: 'cod', title: 'Cash on delivery', text: 'Pay cash or by UPI QR when your food arrives' },
-            ].map(o => (
-              <Pressable key={o.key} onPress={() => setPayBy(o.key)} style={st.payOption} accessibilityRole="radio" accessibilityState={{ checked: payBy === o.key }}>
-                <View style={[st.radio, payBy === o.key && st.radioOn]}>{payBy === o.key && <View style={st.radioDot} />}</View>
-                <View style={st.payText}>
-                  <Text style={st.payTitle}>{o.title}</Text>
-                  <Text style={st.muted}>{o.text}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </Card>
-        )}
         <Text style={st.policy}><Text style={st.bold}>Cancellation policy:</Text> please double-check your order and address. You can cancel free of charge until the kitchen starts cooking.</Text>
       </ScrollView>
 
@@ -291,12 +269,11 @@ export default function CheckoutScreen({ navigation }) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View>
             <Text style={st.payLabel}>PAY USING</Text>
-            <Text style={st.payWith}>{paidByWallet ? 'Wallet' : payingOnline ? 'Pay online' : 'Cash on delivery'}</Text>
+            <Text style={st.payWith}>{paidByWallet ? 'Wallet' : canChoosePay ? (lastPay ? payLabel(lastPay) : 'UPI, cards & more') : 'Cash on delivery'}</Text>
           </View>
           <Button title={action.label} onPress={action.run} disabled={actionDisabled} busy={placing} style={{ flex: 1 }} />
         </View>
       </View>
-      <RazorpayCheckout pay={paying?.pay} onResult={onPaid} />
     </View>
   );
 }
@@ -345,10 +322,4 @@ const st = StyleSheet.create({
   payError: { color: C.red, fontSize: 13 },
   payLabel: { fontSize: 10.5, fontWeight: '800', color: C.muted, letterSpacing: 0.5 },
   payWith: { fontSize: 14, fontWeight: '800', color: C.ink },
-  payOption: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  payText: { flex: 1 },
-  payTitle: { fontSize: 14.5, fontWeight: '700', color: C.ink },
-  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#C9C9C9', alignItems: 'center', justifyContent: 'center' },
-  radioOn: { borderColor: C.red },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.red },
 });

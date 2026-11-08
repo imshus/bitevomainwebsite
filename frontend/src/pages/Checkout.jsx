@@ -2,13 +2,15 @@
 // with quick extras, "Complete your meal" add-ons, offers, delivery details, the bill, and a pay bar
 // pinned to the bottom. Styles in ../checkout.css.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../state/auth.jsx';
 import { useCart, keyOf } from '../state/cart.jsx';
 import { useToast } from '../state/toast.jsx';
 import { useMenu, useConfig } from '../state/menu.js';
 import { payWithRazorpay } from '../lib/razorpay.js';
+import { onPhone, payLabel, razorpayDisplay, rememberedChoice, rememberChoice } from '../lib/payMethods.js';
+import PaymentPage from '../components/PaymentPage.jsx';
 import { useDeliveryLocation, setDeliveryLocation, locationFromAddress } from '../state/location.js';
 import { PageHero } from '../components/Sections.jsx';
 import { VegMark, Stepper } from '../components/Dish.jsx';
@@ -169,12 +171,18 @@ export default function Checkout() {
   const needsPhone = signedIn && !customer.phone;
   const phoneOk = /^[6-9]\d{9}$/.test(deliveryPhone.replace(/\D/g, ''));
   const { quote, setQuote, error: quoteError, refresh } = useQuote(cart, useWallet, signedIn ? customer._id : null);
-  // Pay online through Razorpay (when it's set up) or cash on delivery; online is the default.
+  // How to pay: chosen on the payment page (/checkout?step=pay, components/PaymentPage.jsx) when Razorpay is set
+  // up; the way this browser paid last time is picked again ("Recently used"). Without Razorpay: cash on delivery.
   const { data: siteConfig } = useConfig();
-  const [payBy, setPayBy] = useState('online'); // 'online' | 'cod'
-  const [choosingPay, setChoosingPay] = useState(false);
   const onlineOk = Boolean(siteConfig?.razorpay);
-  const payingOnline = onlineOk && payBy === 'online' && quote?.payable > 0;
+  const [recent] = useState(() => {
+    const c = rememberedChoice();
+    return c && !(c.kind === 'upi_app' && !onPhone()) && !(c.kind === 'upi_qr' && onPhone()) && !(c.kind === 'upi_any' && !onPhone()) ? c : null;
+  });
+  const [payChoice, setPayChoice] = useState(() => recent || (onPhone() ? { kind: 'upi_app', app: 'google_pay' } : { kind: 'upi_qr' }));
+  const choice = onlineOk ? payChoice : { kind: 'cod' };
+  const [params, setParams] = useSearchParams();
+  const onPayPage = params.get('step') === 'pay';
 
   // Phones and tablets: this page has its own header with a back arrow instead of the site header.
   useEffect(() => {
@@ -245,12 +253,15 @@ export default function Checkout() {
     else setChoosing(true);
   };
 
+  // Places the order, paying first with the chosen way when it's online (Razorpay opens on just that method).
   const place = async () => {
     setPlaceError('');
     const who = signedIn ? customer : await requireLogin('Sign in to place your order.');
     if (!who) return;
     if (!addressId) { setPlaceError('Add a delivery address first.'); return; }
     if (!who.phone && !phoneOk) { setPlaceError('Add a 10-digit mobile number for delivery.'); phoneInput.current?.focus(); return; }
+    const payingOnline = onlineOk && choice.kind !== 'cod' && quote?.payable > 0;
+    if (payingOnline || choice.kind === 'cod') rememberChoice(choice);
     setPlacing(true);
     const orderBody = {
       items: orderItems(cart.lines),
@@ -265,7 +276,10 @@ export default function Checkout() {
         const pay = await api.payOnline(orderBody);
         let paid;
         try {
-          paid = await payWithRazorpay(pay, { onFailed: msg => toast(msg || 'That payment didn’t go through. Try again or pick another way to pay.', 'error') });
+          paid = await payWithRazorpay(pay, {
+            display: razorpayDisplay(choice),
+            onFailed: msg => toast(msg || 'That payment didn’t go through. Try again or pick another way to pay.', 'error'),
+          });
         } catch (err) {
           if (!err.dismissed) throw err;
           toast(err.message);
@@ -278,6 +292,7 @@ export default function Checkout() {
       }
       remember(addressId);
       cart.clear();
+      setParams({}, { replace: true });
       if (!who.phone) api.me().then(setCustomer, () => {}); // picks up the saved delivery number
       navigate(`/orders/${order._id}`, { state: { justPlaced: true } });
     } catch (err) {
@@ -297,15 +312,44 @@ export default function Checkout() {
     : quote.itemTotal < quote.minOrderValue ? `The minimum order is ${money(quote.minOrderValue)}.`
     : null;
 
-  // The one main button, in the pay bar.
+  const paidByWallet = quote?.payable === 0 && quote?.walletUsed > 0;
+  const canChoosePay = onlineOk && !paidByWallet;
+  const readyToPay = signedIn && addressId && served && !(needsPhone && !phoneOk) && quote && !blocker;
+  // The payment page is its own step, so the phone's back button returns to the cart.
+  const openPayment = () => { setPlaceError(''); setParams({ step: 'pay' }); };
+  const closePayment = () => {
+    setPlaceError('');
+    if (window.history.state?.idx > 0) navigate(-1);
+    else setParams({}, { replace: true });
+  };
+
+  // The one main button, in the pay bar: on to the payment page, or (nothing to choose) place the order.
   const action = !signedIn ? { label: 'Sign in to order', run: place }
     : !addressId ? { label: 'Add address', run: chooseAddress }
     : !served ? { label: 'Change address', run: chooseAddress }
     : needsPhone && !phoneOk ? { label: 'Add mobile number', run: () => phoneInput.current?.focus() }
-    : { label: !quote ? 'Place order' : payingOnline ? `Pay ${money(quote.payable)}` : `Place order · ${money(quote.payable)}`, run: place };
+    : canChoosePay ? { label: quote ? `Proceed to pay ${money(quote.payable)}` : 'Proceed to pay', run: openPayment }
+    : { label: !quote ? 'Place order' : `Place order · ${money(quote.payable)}`, run: place };
   const actionDisabled = served ? placing || !quote || Boolean(blocker) : false;
-  const paidByWallet = quote?.payable === 0 && quote?.walletUsed > 0;
-  const canChoosePay = onlineOk && !paidByWallet;
+
+  if (onPayPage && canChoosePay && readyToPay) {
+    return (
+      <div className="co">
+        <PaymentPage
+          quote={quote}
+          itemCount={cart.lines.reduce((n, l) => n + l.qty, 0)}
+          where={`Delivering in ${DELIVERY_MINS} mins to ${selected.label}`}
+          choice={payChoice}
+          recent={recent}
+          onChoose={c => { setPayChoice(c); setPlaceError(''); }}
+          onPay={place}
+          onBack={closePayment}
+          busy={placing}
+          error={placeError}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="co">
@@ -485,31 +529,16 @@ export default function Checkout() {
       <div className="co-pay">
         {(placeError || blocker) && <p className="co-pay__error" role="alert">{placeError || blocker}</p>}
         <div className="co-pay__row">
-          <button type="button" className="co-pay__using" onClick={() => setChoosingPay(true)} disabled={!canChoosePay} aria-haspopup="dialog">
+          <button type="button" className="co-pay__using" onClick={() => (readyToPay ? openPayment() : action.run())} disabled={!canChoosePay} aria-label={canChoosePay ? 'Choose how to pay' : undefined}>
             <small>Pay using{canChoosePay && <ChevronDown />}</small>
-            <b>{paidByWallet ? 'BiteVo Wallet' : canChoosePay && payBy === 'online' ? 'Pay online' : 'Cash on Delivery'}</b>
-            <span>{paidByWallet ? 'Nothing to pay on delivery' : canChoosePay && payBy === 'online' ? 'UPI, cards, netbanking' : 'Pay cash or ask for a UPI QR code'}</span>
+            <b>{paidByWallet ? 'BiteVo Wallet' : payLabel(choice)}</b>
+            <span>{paidByWallet ? 'Nothing to pay on delivery' : choice.kind === 'cod' ? 'Pay cash or ask for a UPI QR code' : 'UPI, cards & more'}</span>
           </button>
           <button type="button" className="co-pay__btn" onClick={action.run} disabled={actionDisabled}>
-            {placing ? (payingOnline ? 'Opening payment…' : 'Placing your order…') : action.label}
+            {placing ? 'Placing your order…' : action.label}
           </button>
         </div>
       </div>
-
-      {choosingPay && (
-        <Modal onClose={() => setChoosingPay(false)} label="Choose how to pay" className="co-paysheet">
-          <h2>Pay using</h2>
-          {[
-            { key: 'online', title: 'Pay online', text: 'UPI, cards, netbanking (secured by Razorpay)' },
-            { key: 'cod', title: 'Cash on Delivery', text: 'Pay cash or by UPI to the delivery partner' },
-          ].map(o => (
-            <label key={o.key} className={`co-payopt${payBy === o.key ? ' is-selected' : ''}`}>
-              <input type="radio" name="pay" checked={payBy === o.key} onChange={() => { setPayBy(o.key); setChoosingPay(false); }} />
-              <span><b>{o.title}</b><small>{o.text}</small></span>
-            </label>
-          ))}
-        </Modal>
-      )}
 
       {choosing && (
         <Modal onClose={() => setChoosing(false)} label="Choose a delivery address" className="co-addr-sheet">

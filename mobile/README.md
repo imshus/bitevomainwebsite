@@ -10,9 +10,11 @@ What it does (first version):
 - Sign in with a mobile number (WhatsApp/SMS code) or email code; name and referral code for new accounts.
 - Delivery addresses, with "Service unavailable" outside the delivery area (Sector 40, 44 and 45 in
   Gurugram, as set on the backend).
-- Checkout: offers and coupon codes, wallet, cooking note, the bill from the server, and paying online with
-  Razorpay (UPI, cards, netbanking; `src/components/RazorpayCheckout.js`: Razorpay's checkout in a web view,
-  UPI apps open from it) or cash on delivery. Online payment shows when the API has the Razorpay keys.
+- Checkout: offers and coupon codes, wallet, cooking note and the bill from the server, then "Proceed to pay":
+  the Payment screen (`src/screens/PaymentScreen.js`) with Google Pay, PhonePe, Paytm and other UPI apps,
+  cards, wallets and cash on delivery ("Recently used" first). Razorpay's checkout opens in a web view on the
+  chosen method (`src/components/RazorpayCheckout.js`; UPI apps open from it). Online payment shows when the API
+  has the Razorpay keys; otherwise "Place order" (cash on delivery).
 - An "Invoice" button on every order: the API's invoice (the whole bill, GST when set up) opens in the phone's
   browser, where it can be saved as a PDF or shared.
 - My orders, live order tracking (refreshes every 5 seconds while the order is live), cancelling, wallet

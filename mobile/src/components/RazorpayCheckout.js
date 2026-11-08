@@ -15,8 +15,9 @@ import { C } from '../theme';
 
 const RETURN_URL = `${API_URL.replace(/\/$/, '')}/api/payments/razorpay-return`;
 
-// The page that opens Razorpay's checkout with this payment (from POST /orders/pay).
-function page(pay) {
+// The page that opens Razorpay's checkout with this payment (from POST /orders/pay), on just the method chosen on
+// the payment screen when `display` is given (lib/payMethods.js razorpayDisplay).
+function page(pay, display) {
   const options = {
     key: pay.keyId,
     order_id: pay.orderId,
@@ -29,6 +30,7 @@ function page(pay) {
     theme: { color: C.red },
     callback_url: RETURN_URL,
     redirect: true,
+    ...(display && { config: { display } }),
   };
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -60,10 +62,11 @@ function appLink(url) {
 
 /**
  * pay       the answer of POST /orders/pay ({ keyId, orderId, amount, currency, prefill }), or null (closed)
+ * display   Razorpay's config.display for the chosen method (optional)
  * onResult  called once with { type: 'paid', orderId, paymentId, signature } or { type: 'dismissed' | 'failed' |
  *           'error', description }
  */
-export default function RazorpayCheckout({ pay, onResult }) {
+export default function RazorpayCheckout({ pay, display, onResult }) {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const done = useRef(false);
@@ -112,7 +115,7 @@ export default function RazorpayCheckout({ pay, onResult }) {
       </View>
       <View style={{ flex: 1, paddingBottom: insets.bottom }}>
         <WebView
-          source={{ html: page(pay), baseUrl: `${SITE_URL.replace(/\/$/, '')}/` }}
+          source={{ html: page(pay, display), baseUrl: `${SITE_URL.replace(/\/$/, '')}/` }}
           originWhitelist={['*']}
           onMessage={onMessage}
           onShouldStartLoadWithRequest={onNavigate}
