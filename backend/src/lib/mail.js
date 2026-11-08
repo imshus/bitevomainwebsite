@@ -189,3 +189,37 @@ export function refundEmail(customer, order, stage) {
     text: `Order ${order.orderNo} was cancelled. Refund of ${money(r.amount)}: ${walletPart > 0 ? `${money(walletPart)} to your BiteVo wallet` : ''}${walletPart > 0 && sourcePart > 0 ? ', ' : ''}${sourcePart > 0 ? `${money(sourcePart)} to your ${via} (5-7 working days)` : ''}.`,
   };
 }
+
+// A refund request decided in the admin panel (lib/orderEmails.js): approved (how much, and where it goes) or not
+// approved (the admin's note).
+export function refundDecisionEmail(customer, request, order) {
+  const link = { href: `${config.siteUrl}/orders/${request.orderId}`, label: 'View your order' };
+  const hi = `Hi ${esc(firstName(customer.name))}, `;
+  if (request.status === 'rejected') {
+    return {
+      to: customer.email,
+      subject: `About your refund request for order #${request.orderNo}`,
+      html: layout('We couldn’t approve this refund',
+        p(`${hi}we looked into your refund request for order <b>#${esc(request.orderNo)}</b> (${esc(String(request.reasonLabel || '').toLowerCase())}) and couldn’t approve it this time.`)
+        + (request.note ? p(`<b>From our team:</b> ${esc(request.note)}`) : '')
+        + p('If something isn’t right, just reply to this email.'),
+        link),
+      text: `We couldn't approve your refund request for order ${request.orderNo}.${request.note ? ` ${request.note}` : ''}`,
+    };
+  }
+  const d = request.decision || { amount: request.amount, to: request.to };
+  const sourcePart = d.to === 'source' ? Math.max(0, d.amount - (d.wallet || 0)) : 0;
+  const walletPart = d.to === 'source' ? d.wallet || 0 : d.amount;
+  const via = PAY_NAMES[order?.payment?.method] || order?.paymentMethod || 'original payment method';
+  const parts = [walletPart > 0 && `<b>${money(walletPart)}</b> to your BiteVo wallet (added straight away)`, sourcePart > 0 && `<b>${money(sourcePart)}</b> to your ${esc(via)} through Razorpay (5–7 working days)`].filter(Boolean);
+  return {
+    to: customer.email,
+    subject: `Refund approved · ${money(d.amount)} for order #${request.orderNo}`,
+    html: layout(`Your refund of ${money(d.amount)} is approved`,
+      p(`${hi}sorry about your order <b>#${esc(request.orderNo)}</b>. We’ve approved your refund: ${parts.join(' and ')}.`)
+      + (request.note ? p(`<b>From our team:</b> ${esc(request.note)}`) : '')
+      + (sourcePart > 0 ? p('We’ll email you again when Razorpay has sent it.') : ''),
+      link),
+    text: `Your refund of ${money(d.amount)} for order ${request.orderNo} is approved.${request.note ? ` ${request.note}` : ''}`,
+  };
+}

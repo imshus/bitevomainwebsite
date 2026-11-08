@@ -15,6 +15,7 @@ import { settleOffers } from '../lib/offers.js';
 import { config } from '../config.js';
 import { razorpayEnabled, createRazorpayOrder, signatureValid, confirmPayment, methodLabel, refundUnused, refundPayment } from '../lib/razorpay.js';
 import { invoiceHtml, invoiceHeaders, invoicePath } from '../lib/invoice.js';
+import { REASONS, cantRequest, paidFor, publicRequest } from '../lib/refundRequests.js';
 
 export const router = Router();
 
@@ -107,10 +108,44 @@ router.get('/', async (req, res) => {
   res.json(orders.map(o => publicOrder(o)));
 });
 
+// The order page also gets the refund request (if any), whether one can be made, and what was paid how (to offer
+// "back to UPI / card" only for orders paid online).
 router.get('/:id', async (req, res) => {
   await settleOffers(req.customer._id);
   const order = await ownOrder(req);
-  res.json(publicOrder(order, await riderAgent(order)));
+  const request = await store.findOne('refundRequests', { orderId: order._id });
+  res.json({
+    ...publicOrder(order, await riderAgent(order)),
+    refundRequest: publicRequest(request),
+    canRequestRefund: !cantRequest(order, request),
+    paid: paidFor(order),
+  });
+});
+
+// "Request a refund": { reason (a REASONS key), details, to: 'wallet' | 'source', amount? }. Nothing is refunded
+// here: an admin approves or rejects it in the admin panel.
+router.post('/:id/refund-request', async (req, res) => {
+  const saved = await serialize(`refund-request:${req.customer._id}`, async () => {
+    const order = await ownOrder(req);
+    const existing = await store.findOne('refundRequests', { orderId: order._id });
+    const why = cantRequest(order, existing);
+    if (why) throw conflict(why);
+    const body = req.body || {};
+    const reason = String(body.reason || '');
+    if (!REASONS[reason]) throw badRequest('Choose what went wrong.');
+    const details = text(body.details, 500);
+    if (details.length < 10) throw badRequest('Tell us a little more about what went wrong (at least a few words).');
+    const paid = paidFor(order);
+    const to = body.to === 'source' ? 'source' : 'wallet';
+    if (to === 'source' && paid.online <= 0) throw badRequest('This order wasn’t paid online, so a refund can only go to your BiteVo wallet.');
+    const amount = body.amount == null || body.amount === '' ? paid.total : Math.round(Number(body.amount));
+    if (!(amount >= 1 && amount <= paid.total)) throw badRequest(`Enter an amount from ₹1 to ₹${paid.total}.`);
+    return store.insert('refundRequests', {
+      orderId: order._id, orderNo: order.orderNo, customerId: req.customer._id, customerName: order.customerName, customerPhone: order.customerPhone,
+      reason, reasonLabel: REASONS[reason], details, amount, to, status: 'pending', createdAt: nowIso(),
+    });
+  });
+  res.status(201).json(publicRequest(saved));
 });
 
 // Everything an order must pass before it's placed or paid for online: the customer, the delivery number and
