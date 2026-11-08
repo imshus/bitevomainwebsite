@@ -62,6 +62,50 @@ export async function confirmPayment(paymentId, record) {
   return payment;
 }
 
+// ---- Webhook ---------------------------------------------------------------------------------------
+// Razorpay's webhook (POST /api/payments/razorpay-webhook) tells the API about payments and refunds as they
+// happen. The order flow above doesn't depend on it (each payment is checked with Razorpay when the order is
+// placed, and the 3-minute check refunds payments without an order); it keeps payments and refunds up to date:
+//   payment.captured / payment.authorized / order.paid: the payment is noted on its record (payments)
+//   payment.failed: the reason is noted on its record
+//   refund.processed / refund.failed: the refund's state is noted on the order (shown in the admin panel) and
+//     on the payment record. A failed refund is logged, so it can be sent again from the Razorpay dashboard.
+
+// X-Razorpay-Signature: HMAC-SHA256 of the request body with the webhook secret.
+export function webhookSignatureValid(rawBody, signature) {
+  if (!config.razorpay.webhookSecret || !rawBody || typeof signature !== 'string') return false;
+  const expected = crypto.createHmac('sha256', config.razorpay.webhookSecret).update(rawBody).digest('hex');
+  return signature.length === expected.length && crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}
+
+export async function handleWebhook(event) {
+  const type = String(event?.event || '');
+  const payment = event?.payload?.payment?.entity || null;
+  const refund = event?.payload?.refund?.entity || null;
+  const at = nowIso();
+
+  if (payment && ['payment.captured', 'payment.authorized', 'order.paid'].includes(type)) {
+    const record = await store.findById('payments', String(payment.order_id || ''));
+    if (record && !record.paymentId) await store.update('payments', record._id, { paymentId: payment.id, gatewayStatus: payment.status, updatedAt: at });
+    return;
+  }
+  if (payment && type === 'payment.failed') {
+    const record = await store.findById('payments', String(payment.order_id || ''));
+    if (record) await store.update('payments', record._id, { lastError: String(payment.error_description || payment.error_code || 'failed').slice(0, 200), updatedAt: at });
+    return;
+  }
+  if (refund && ['refund.processed', 'refund.failed', 'refund.created'].includes(type)) {
+    const status = type === 'refund.processed' ? 'processed' : type === 'refund.failed' ? 'failed' : 'pending';
+    const record = await store.findOne('payments', { paymentId: String(refund.payment_id || '') });
+    if (record?.refundId === refund.id) await store.update('payments', record._id, { refundStatus: status, updatedAt: at });
+    const order = record?.orderId ? await store.findById('orders', record.orderId) : null;
+    if (order?.refund?.razorpayRefundId === refund.id && order.refund.refundStatus !== 'processed') {
+      await store.update('orders', order._id, { refund: { ...order.refund, refundStatus: status, refundUpdatedAt: at }, updatedAt: at });
+    }
+    if (status === 'failed') console.error(`[razorpay] Refund ${refund.id} of payment ${refund.payment_id} FAILED: send it again from the Razorpay dashboard.`);
+  }
+}
+
 // "UPI", "Card", "Netbanking"… (shown in the admin panel, which offers refunds to it).
 export function methodLabel(payment) {
   return { upi: 'UPI', card: 'Card', netbanking: 'Netbanking', wallet: 'Online wallet', emi: 'EMI', paylater: 'Pay later' }[payment.method] || 'Online';

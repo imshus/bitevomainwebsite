@@ -62,7 +62,11 @@ export function createApp() {
   app.use('/api', helmet());
   app.use(cors({ origin: config.clientOrigins, credentials: true }));
   app.use(cookieParser());
-  app.use('/api', express.json({ limit: '50kb' }));
+  // Razorpay's webhook is checked against a signature of the exact bytes it sent, so they're kept for it.
+  app.use('/api', express.json({
+    limit: '50kb',
+    verify: (req, res, buf) => { if (req.originalUrl.startsWith('/api/payments/razorpay-webhook')) req.rawBody = Buffer.from(buf); },
+  }));
 
   app.get('/api/health', (req, res) => res.json({ ok: true, store: store.kind }));
   app.use('/api', publicRoutes);

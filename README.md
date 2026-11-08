@@ -75,6 +75,13 @@ production).
   with Razorpay (`backend/src/lib/razorpay.js`); a payment that comes in without an order is refunded by the
   API's 3-minute check. The website opens Razorpay's window; the app opens Razorpay's checkout in a web view,
   which returns through `POST /api/payments/razorpay-return` (`backend/src/routes/payments.js`).
+  Cancelling: the customer (before the kitchen accepts) and the admin panel ("Refund to UPI/Card") refund the
+  online part through Razorpay and the wallet part to the wallet.
+  **Webhook** (recommended): Razorpay dashboard → Accounts & Settings → Webhooks → add
+  `https://api.bitevo.in/api/payments/razorpay-webhook` with the events `payment.captured`, `payment.failed`,
+  `refund.processed` and `refund.failed`, and put its secret in `RAZORPAY_WEBHOOK_SECRET` (or `ROZERPAY_WEBHOOK`).
+  Every call is checked against its `X-Razorpay-Signature`; it keeps payment records and refund states up to date
+  (the admin panel shows a refund as done or failed).
 - **Invoice** for every order: the "Invoice" button on the order page (website and app) and the link in the
   order email open a printable invoice (Save as PDF) with the whole bill: business details (`BUSINESS_*`,
   `GSTIN`, `FSSAI_LICENSE`), invoice number per financial year (`INV/26-27/BV1108-007`), customer and delivery

@@ -5,6 +5,8 @@
 // signature and the payment are checked with Razorpay, so nothing here is trusted or stored.
 import crypto from 'node:crypto';
 import express, { Router } from 'express';
+import { webhookSignatureValid, handleWebhook } from '../lib/razorpay.js';
+import { config } from '../config.js';
 
 export const router = Router();
 
@@ -32,3 +34,19 @@ function returnPage(req, res) {
 
 router.post('/razorpay-return', express.urlencoded({ extended: true, limit: '20kb' }), returnPage);
 router.get('/razorpay-return', returnPage);
+
+// Razorpay's webhook: Dashboard → Accounts & Settings → Webhooks → https://api.bitevo.in/api/payments/razorpay-webhook,
+// with the secret in RAZORPAY_WEBHOOK_SECRET (or ROZERPAY_WEBHOOK) and the events payment.captured,
+// payment.failed, refund.processed and refund.failed (lib/razorpay.js handleWebhook). Calls without a valid
+// X-Razorpay-Signature are refused; an error answers 500, so Razorpay sends the event again later.
+router.post('/razorpay-webhook', async (req, res) => {
+  if (!config.razorpay.webhookSecret) return res.status(404).json({ error: 'The Razorpay webhook isn’t set up.' });
+  if (!webhookSignatureValid(req.rawBody, req.get('x-razorpay-signature'))) return res.status(400).json({ error: 'Invalid signature.' });
+  try {
+    await handleWebhook(req.body);
+  } catch (err) {
+    console.error(`[razorpay] webhook ${req.body?.event} failed: ${err.message}`);
+    return res.status(500).json({ error: 'Not processed.' });
+  }
+  res.json({ ok: true });
+});

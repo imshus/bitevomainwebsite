@@ -86,6 +86,8 @@ export const config = {
   razorpay: {
     keyId: (process.env.RAZORPAY_KEY_ID || process.env.ROZERPAY_API || '').trim(),
     keySecret: (process.env.RAZORPAY_KEY_SECRET || process.env.ROZERPAY_SECRET || '').trim(),
+    // The secret of the webhook set up in the Razorpay dashboard for /api/payments/razorpay-webhook (optional).
+    webhookSecret: (process.env.RAZORPAY_WEBHOOK_SECRET || process.env.ROZERPAY_WEBHOOK || '').trim(),
   },
   // Google Maps Platform. The server key is used only here, for place search, place details and
   // turning a map pin into an address. The browser key draws the map, so restrict it to the

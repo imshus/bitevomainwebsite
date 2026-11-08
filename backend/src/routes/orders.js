@@ -296,7 +296,7 @@ router.post('/:id/cancel', async (req, res) => {
     const toWallet = (order.walletUsed || 0) + (online && !sourceRefund ? online.amount : 0);
     const paid = (order.walletUsed || 0) + (online ? online.amount : 0);
     const refund = !paid ? null
-      : sourceRefund ? { amount: paid, to: 'source', razorpayRefundId: sourceRefund.id, ...(order.walletUsed > 0 && { wallet: order.walletUsed }) }
+      : sourceRefund ? { amount: paid, to: 'source', razorpayRefundId: sourceRefund.id, refundStatus: sourceRefund.status || 'pending', ...(order.walletUsed > 0 && { wallet: order.walletUsed }) }
       : { amount: paid, to: 'wallet' };
     const updated = await store.update('orders', order._id, {
       status: 'cancelled', cancelReason: CUSTOMER_CANCEL_REASON, cancelledAt: at, refund, deliveryMins: null, rating: null, updatedAt: at,
