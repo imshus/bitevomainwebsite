@@ -3,14 +3,16 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { badRequest, HttpError, text, MIN } from '../lib/http.js';
-import { mapsEnabled, autocomplete, placeDetails, addressAt } from '../lib/maps.js';
+import { mapsEnabled, autocomplete, placeDetails, addressAt, addressAtOsm } from '../lib/maps.js';
 
 export const router = Router();
 
-router.use((req, res, next) => {
+// Searching places needs the Google key; the address at a location (the phone's current location) works without
+// it too, through OpenStreetMap (lib/maps.js addressAtOsm).
+const needsGoogle = (req, res, next) => {
   if (!mapsEnabled()) throw new HttpError(503, 'Location search isn’t set up yet. Please type your address instead.');
   next();
-});
+};
 
 router.use(rateLimit({
   windowMs: 10 * MIN, limit: 300, standardHeaders: 'draft-7', legacyHeaders: false,
@@ -27,7 +29,7 @@ function point(lat, lng, { required = true } = {}) {
   return ok ? p : undefined;
 }
 
-router.get('/search', async (req, res) => {
+router.get('/search', needsGoogle, async (req, res) => {
   const q = text(req.query.q, 100);
   if (q.length < 2) return res.json([]);
   res.json(await autocomplete(q, { session: session(req.query.session), near: point(req.query.lat, req.query.lng, { required: false }) }));
@@ -35,10 +37,10 @@ router.get('/search', async (req, res) => {
 
 router.get('/reverse', async (req, res) => {
   const { lat, lng } = point(req.query.lat, req.query.lng);
-  res.json(await addressAt(lat, lng));
+  res.json(mapsEnabled() ? await addressAt(lat, lng) : await addressAtOsm(lat, lng));
 });
 
-router.get('/:placeId', async (req, res) => {
+router.get('/:placeId', needsGoogle, async (req, res) => {
   if (!/^[A-Za-z0-9_-]{10,300}$/.test(req.params.placeId)) throw badRequest('That place doesn’t look right.');
   res.json(await placeDetails(req.params.placeId, { session: session(req.query.session) }));
 });

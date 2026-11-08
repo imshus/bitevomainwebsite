@@ -1,7 +1,8 @@
 // Delivery addresses: the list to choose from (addresses outside the delivery area say "Service unavailable
-// here") and the form to add or edit one. The server checks the delivery area again when saving.
-import { useState } from 'react';
-import { Alert as Confirm, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+// here") and the form to add or edit one, filled in from the phone's live location (lib/location.js) or typed by
+// hand: anything filled in can be changed. The server checks the delivery area again when saving.
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert as Confirm, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
 import { useConfig } from '../state/data';
@@ -10,6 +11,7 @@ import { addressLine } from '../lib/format';
 import { deliversTo, whereWeDeliver, areaOf } from '../lib/deliveryArea';
 import { Button, Empty } from '../components/ui';
 import { MapPin } from '../components/Icons';
+import { locateHere } from '../state/here';
 import { C, R } from '../theme';
 
 export function AddressesScreen({ navigation }) {
@@ -26,7 +28,8 @@ export function AddressesScreen({ navigation }) {
   if (!addresses.length) {
     return (
       <Empty icon={<MapPin size={44} color={C.red} />} title="No saved addresses yet" text={config?.delivery ? whereWeDeliver(config) : 'Add where we should bring your food.'}>
-        <Button title="+ Add a new address" onPress={() => navigation.navigate('AddressForm')} />
+        <Button title="Use my current location" onPress={() => navigation.navigate('AddressForm', { useLocation: true })} />
+        <Button title="Type the address" kind="outline" onPress={() => navigation.navigate('AddressForm', { useLocation: false })} />
       </Empty>
     );
   }
@@ -34,6 +37,13 @@ export function AddressesScreen({ navigation }) {
   return (
     <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={{ padding: 14, gap: 10 }}>
       {config?.delivery && <Text style={st.note}>{whereWeDeliver(config)}</Text>}
+      <Pressable onPress={() => navigation.navigate('AddressForm', { useLocation: true })} style={st.here} accessibilityRole="button">
+        <MapPin size={22} color={C.red} />
+        <View style={{ flex: 1 }}>
+          <Text style={st.hereTitle}>Use my current location</Text>
+          <Text style={st.line}>Add the address where you are now</Text>
+        </View>
+      </Pressable>
       {addresses.map(a => {
         const on = chosen?._id === a._id;
         const served = deliversTo(a, config);
@@ -82,7 +92,40 @@ export function AddressFormScreen({ navigation, route }) {
   const [form, setForm] = useState(() => fieldsOf(editing, config));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // The live location: the spot saved with the address (for the rider) and what was found there.
+  const [pin, setPin] = useState(editing?.lat != null ? { lat: editing.lat, lng: editing.lng } : null);
+  const [loc, setLoc] = useState({ status: 'idle' }); // idle | locating | ok | error
   const set = field => value => setForm(f => ({ ...f, [field]: value }));
+
+  // Fills the form from the address at the phone's location. On its own (opening the form) only empty fields are
+  // filled; "Use my current location" also replaces the sector, city and pincode.
+  const fillFromLocation = async replace => {
+    setLoc({ status: 'locating' });
+    const r = await locateHere();
+    if (r.status !== 'ok') { setLoc({ status: 'error', message: r.error?.message || 'We couldn’t find your location. Please type your address.' }); return; }
+    setPin({ lat: r.lat, lng: r.lng });
+    const p = r.place;
+    setLoc({ status: 'ok', place: p, accuracy: r.accuracy });
+    if (!p) return;
+    setForm(f => {
+      const put = (field, value) => (value && (replace || !f[field]) ? value : f[field]);
+      const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const area = rule
+        ? rule.areas.find(a => norm(a) === norm(p.area) || norm(p.formatted).includes(norm(a))) || ''
+        : p.area;
+      return {
+        ...f,
+        area: put('area', area),
+        city: rule ? f.city : put('city', p.city),
+        building: f.building || p.name || p.street || '',
+        pincode: put('pincode', p.pincode),
+      };
+    });
+  };
+  // A new address starts from where the phone is (unless "Type the address" was chosen).
+  useEffect(() => {
+    if (route.params?.useLocation ?? !editing) fillFromLocation(Boolean(route.params?.useLocation));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const filled = form.house.trim() && form.building.trim().length >= 3 && form.area.trim() && (rule || form.city.trim());
 
   const save = async () => {
@@ -93,8 +136,9 @@ export function AddressFormScreen({ navigation, route }) {
         label: form.label, house: form.house, building: form.building, area: form.area,
         ...(!rule && { city: form.city }),
         landmark: form.landmark, pincode: form.pincode,
-        // An address saved with a location (map pin or the website's GPS) keeps it.
-        ...(editing?.lat != null && { lat: editing.lat, lng: editing.lng, ...(editing.mapAddress && { mapAddress: editing.mapAddress }) }),
+        // The spot the rider is taken to: the phone's location when it was used here, else the one saved before.
+        ...(pin && { lat: pin.lat, lng: pin.lng }),
+        ...(pin && editing?.mapAddress && pin.lat === editing.lat && pin.lng === editing.lng && { mapAddress: editing.mapAddress }),
       };
       const result = editing ? await api.updateAddress(editing._id, body) : await api.addAddress(body);
       setCustomer(result.customer);
@@ -109,6 +153,35 @@ export function AddressFormScreen({ navigation, route }) {
   return (
     <ScrollView style={{ backgroundColor: C.white }} contentContainerStyle={{ padding: 18, gap: 12 }} keyboardShouldPersistTaps="handled">
       {config?.delivery && <Text style={st.note}>{whereWeDeliver(config)}</Text>}
+
+      {/* The live location: found, finding, or why not; the fields below can always be typed or changed. */}
+      <View style={[st.locBox, loc.status === 'error' && st.locBoxErr]}>
+        {loc.status === 'locating' ? (
+          <View style={st.locRow}><ActivityIndicator color={C.red} /><Text style={st.locText}>Finding your current location…</Text></View>
+        ) : loc.status === 'ok' ? (
+          <>
+            <View style={st.locRow}>
+              <MapPin size={20} color={C.green} />
+              <Text style={st.locText} numberOfLines={3}>
+                <Text style={st.locStrong}>Current location: </Text>{loc.place?.formatted || 'found'}{loc.accuracy ? ` (accurate to about ${loc.accuracy} m)` : ''}
+              </Text>
+            </View>
+            {loc.place?.check && loc.place.check.deliverable === false && <Text style={st.locWarn}>{loc.place.check.message || 'We don’t deliver here yet.'}</Text>}
+            <Text style={st.locHint}>Filled in below. Add your flat number and change anything that isn’t right.</Text>
+          </>
+        ) : loc.status === 'error' ? (
+          <Text style={st.locWarn}>{loc.message}</Text>
+        ) : (
+          <Text style={st.locHint}>{pin ? 'This address has a saved location for the rider.' : 'Fill in the address below, or use where you are now.'}</Text>
+        )}
+        {loc.status !== 'locating' && (
+          <Pressable onPress={() => fillFromLocation(true)} style={st.locBtn} accessibilityRole="button">
+            <MapPin size={16} color={C.red} />
+            <Text style={st.locBtnText}>{loc.status === 'ok' ? 'Find my location again' : loc.status === 'error' ? 'Try again' : 'Use my current location'}</Text>
+          </Pressable>
+        )}
+      </View>
+
       <Text style={st.fieldLabel}>Save as</Text>
       <View style={st.chips}>
         {LABELS.map(l => (
@@ -168,4 +241,15 @@ const st = StyleSheet.create({
   chipText: { color: C.ink, fontWeight: '600' },
   chipTextOn: { color: C.red, fontWeight: '800' },
   error: { color: C.red, fontSize: 14 },
+  here: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.white, borderRadius: R.md, padding: 14, borderWidth: 1.5, borderColor: '#F2C4C4', borderStyle: 'dashed' },
+  hereTitle: { fontSize: 15, fontWeight: '800', color: C.red },
+  locBox: { backgroundColor: '#F6FBF7', borderRadius: R.md, padding: 12, gap: 8, borderWidth: 1, borderColor: '#D7EEDD' },
+  locBoxErr: { backgroundColor: C.redSoft, borderColor: '#F2C4C4' },
+  locRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  locText: { flex: 1, fontSize: 13.5, color: C.ink, lineHeight: 19 },
+  locStrong: { fontWeight: '800' },
+  locHint: { fontSize: 12.5, color: C.muted },
+  locWarn: { fontSize: 13, color: C.red, fontWeight: '600' },
+  locBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 4 },
+  locBtnText: { color: C.red, fontWeight: '800', fontSize: 14 },
 });

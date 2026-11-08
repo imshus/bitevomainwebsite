@@ -87,6 +87,13 @@ production).
   `refund.processed` and `refund.failed`, and put its secret in `RAZORPAY_WEBHOOK_SECRET` (or `RAZORPAY_WEBHOOK` / `ROZERPAY_WEBHOOK`).
   Every call is checked against its `X-Razorpay-Signature`; it keeps payment records and refund states up to date
   (the admin panel shows a refund as done or failed).
+- **Request a refund** (`backend/src/lib/refundRequests.js`, `frontend/src/components/RefundRequest.jsx`): on a
+  delivered order (up to 3 days after delivery) or a cancelled one that was paid for and not refunded, the
+  customer says what went wrong (food quality, missing or wrong items, very late, other), the amount and where it
+  should go: back to UPI / card (orders paid online) or the BiteVo wallet. `POST /api/orders/:id/refund-request`
+  only records it (one per order, in `refundRequests`); the admin panel's **Refund requests** page approves (amount
+  and destination) or rejects it (with a note), and makes the refund. The order page shows the request's status,
+  and the customer gets an email with the outcome, then another when a UPI / card refund is sent.
 - **Invoice** for every order: the "Invoice" button on the order page (website and app) and the link in the
   order email open a printable invoice (Save as PDF) with the whole bill: business details (`BUSINESS_*`,
   `GSTIN`, `FSSAI_LICENSE`), invoice number per financial year (`INV/26-27/BV1108-007`), customer and delivery
@@ -98,6 +105,11 @@ production).
 - Refer friends: share a code or link, and earn wallet cashback when a friend completes their first orders.
 
 ## Delivery addresses
+
+The address at a location (the app's and the site's "Use my current location": `GET /api/places/reverse?lat=&lng=`)
+uses Google Maps when `GOOGLE_MAPS_KEY` is set, and otherwise OpenStreetMap's free Nominatim service
+(`backend/src/lib/maps.js` `addressAtOsm`: one request a second for the whole server, answers cached), with the
+delivery-area check either way. Searching places by name still needs the Google key.
 
 A saved address (`customers.addresses[]`) is stored as separate fields, checked by the server
 (`cleanAddress` in `backend/src/routes/account.js`):

@@ -158,3 +158,49 @@ export async function addressAt(lat, lng) {
   // The pin stays exactly where the customer put it; only the address text comes from Google.
   return pinCache.set(key, shape({ components: best.address_components, lat, lng, formatted: best.formatted_address }));
 }
+
+// ---- Without a Google key: OpenStreetMap ------------------------------------------------------
+// "Use my current location" still finds the address: OpenStreetMap's Nominatim reverse geocoder, free under its
+// usage policy (an identifying User-Agent, at most one request a second for the whole server), with the answers
+// cached like Google's. Same shape as addressAt().
+const NOMINATIM = 'https://nominatim.openstreetmap.org/reverse';
+let osmNextAt = 0;
+
+export async function addressAtOsm(lat, lng) {
+  const key = `osm:${lat.toFixed(4)},${lng.toFixed(4)}`; // about 10 m
+  const cached = pinCache.get(key);
+  if (cached) return { ...cached, lat, lng, check: deliveryCheck({ ...cached, lat, lng }) };
+  // One request a second, server-wide: each caller waits for its turn.
+  const wait = Math.max(0, osmNextAt - Date.now());
+  osmNextAt = Math.max(Date.now(), osmNextAt) + 1100;
+  if (wait > 8000) throw new HttpError(503, 'Too many location lookups right now. Please type your address, or try again in a moment.');
+  if (wait) await new Promise(resolve => { setTimeout(resolve, wait); });
+  const qs = new URLSearchParams({ format: 'jsonv2', lat: String(lat), lon: String(lng), zoom: '18', addressdetails: '1', 'accept-language': 'en' });
+  let data = null;
+  try {
+    const res = await fetch(`${NOMINATIM}?${qs}`, { headers: { 'User-Agent': 'BiteVo/1.0 (https://bitevo.in)' }, signal: AbortSignal.timeout(8000) });
+    data = res.ok ? await res.json() : null;
+    if (!res.ok) console.error(`[maps] OpenStreetMap reverse: HTTP ${res.status}`);
+  } catch (err) {
+    console.error(`[maps] OpenStreetMap reverse failed: ${err.message}`);
+  }
+  const a = data?.address;
+  if (!a) throw new HttpError(404, 'We couldn’t find an address here. Please type it in.');
+  const area = a.suburb || a.neighbourhood || a.quarter || a.city_district || a.residential || a.village || '';
+  const city = a.city || a.town || a.municipality || a.county || a.state_district || '';
+  const name = a.building || a.amenity || a.shop || '';
+  const place = {
+    lat: Math.round(lat * 1e6) / 1e6,
+    lng: Math.round(lng * 1e6) / 1e6,
+    name: name && name !== area && name !== city ? name : '',
+    street: [a.house_number, a.road].filter(Boolean).join(', '),
+    area,
+    city,
+    state: a.state || '',
+    pincode: (a.postcode || '').replace(/\s/g, ''),
+    formatted: tidy(data.display_name),
+  };
+  place.line2 = [area, city !== area && city].filter(Boolean).join(', ');
+  place.check = deliveryCheck(place);
+  return pinCache.set(key, place);
+}
