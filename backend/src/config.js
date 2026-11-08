@@ -87,7 +87,7 @@ export const config = {
     keyId: (process.env.RAZORPAY_KEY_ID || process.env.ROZERPAY_API || '').trim(),
     keySecret: (process.env.RAZORPAY_KEY_SECRET || process.env.ROZERPAY_SECRET || '').trim(),
     // The secret of the webhook set up in the Razorpay dashboard for /api/payments/razorpay-webhook (optional).
-    webhookSecret: (process.env.RAZORPAY_WEBHOOK_SECRET || process.env.ROZERPAY_WEBHOOK || '').trim(),
+    webhookSecret: (process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_WEBHOOK || process.env.ROZERPAY_WEBHOOK || '').trim(),
   },
   // Google Maps Platform. The server key is used only here, for place search, place details and
   // turning a map pin into an address. The browser key draws the map, so restrict it to the
@@ -127,8 +127,8 @@ export const config = {
     areas: list(process.env.DELIVERY_AREAS ?? 'Sector 40, Sector 44, Sector 45'),
   },
   // Public address of the website, used for links in emails.
-  // This API's own public address, for links in emails (the invoice). Empty = the website's address (SITE_URL),
-  // right when the API also serves the website.
+  // This API's own public address, for links in emails (the invoice). Empty = the address the order request came
+  // in on (set TRUST_PROXY=true behind a proxy, so it's https).
   apiUrl: (process.env.API_PUBLIC_URL || '').trim().replace(/\/+$/, ''),
   siteUrl: (process.env.SITE_URL || list(process.env.CLIENT_ORIGIN || 'http://localhost:2002')[0]).replace(/\/$/, ''),
   // "Continue with Google": the OAuth 2.0 Client ID (Web application) from Google Cloud. Empty = hidden.

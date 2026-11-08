@@ -84,7 +84,7 @@ export function signInCodeEmail(email, code) {
   };
 }
 
-export function orderEmail(customer, order) {
+export function orderEmail(customer, order, { apiBase } = {}) {
   const rows = order.items.map(i => `<tr><td style="padding:6px 0;font-size:14px;color:#333">${esc(i.qty)} × ${esc(i.name)}</td><td align="right" style="padding:6px 0;font-size:14px;color:#333">${money(i.price * i.qty)}</td></tr>`).join('');
   const line = (label, value, bold) => `<tr><td style="padding:4px 0;font-size:14px;color:${bold ? '#1A1A1A' : '#666'};${bold ? 'font-weight:bold' : ''}">${label}</td><td align="right" style="padding:4px 0;font-size:14px;${bold ? 'font-weight:bold' : 'color:#666'}">${value}</td></tr>`;
   const a = order.address || {};
@@ -93,7 +93,7 @@ export function orderEmail(customer, order) {
   const pay = order.payment?.provider === 'razorpay' ? `${wallet}${money(order.payment.amount)} paid online (${esc(order.paymentMethod || 'Razorpay')})`
     : order.paymentMethod === 'Wallet' ? 'Paid from your BiteVo wallet'
     : order.walletUsed > 0 ? `${wallet}the rest in cash on delivery` : 'Cash on delivery';
-  const invoice = `${config.apiUrl || config.siteUrl}${invoicePath(order._id, 90)}`;
+  const invoice = `${apiBase || config.apiUrl || config.siteUrl}${invoicePath(order._id, 90)}`;
   return {
     to: customer.email,
     subject: `Order ${order.orderNo} placed · ${money(order.total)}`,

@@ -79,7 +79,7 @@ production).
   online part through Razorpay and the wallet part to the wallet.
   **Webhook** (recommended): Razorpay dashboard → Accounts & Settings → Webhooks → add
   `https://api.bitevo.in/api/payments/razorpay-webhook` with the events `payment.captured`, `payment.failed`,
-  `refund.processed` and `refund.failed`, and put its secret in `RAZORPAY_WEBHOOK_SECRET` (or `ROZERPAY_WEBHOOK`).
+  `refund.processed` and `refund.failed`, and put its secret in `RAZORPAY_WEBHOOK_SECRET` (or `RAZORPAY_WEBHOOK` / `ROZERPAY_WEBHOOK`).
   Every call is checked against its `X-Razorpay-Signature`; it keeps payment records and refund states up to date
   (the admin panel shows a refund as done or failed).
 - **Invoice** for every order: the "Invoice" button on the order page (website and app) and the link in the

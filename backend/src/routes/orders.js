@@ -260,7 +260,9 @@ router.post('/', async (req, res) => {
     throw new HttpError(err.status || 400, `${err.message} The ${money(online.record.amount)} you paid is being refunded to your ${methodLabel(online.payment)} (3–5 working days).`);
   }
   res.status(placed.again ? 200 : 201).json(publicOrder(placed.order));
-  if (!placed.again && customer.email) sendMail(orderEmail(customer, placed.order)); // confirmation email, if they gave an address
+  // Confirmation email, if they gave an address. Its invoice link points at this API (API_PUBLIC_URL, or the address
+  // this request came in on).
+  if (!placed.again && customer.email) sendMail(orderEmail(customer, placed.order, { apiBase: config.apiUrl || `${req.protocol}://${req.get('host')}` }));
 });
 
 // The order's invoice (lib/invoice.js): the page itself for the signed-in customer (the website's order page
