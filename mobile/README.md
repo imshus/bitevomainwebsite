@@ -7,7 +7,8 @@ What it does (first version):
 
 - Menu: offer banners, the five tabs (All, 1 Item, Food & Meals, Fastfood & Drinks, Combo), search, veg only,
   two dishes per row inside a tab, dish details, and the red cart bar.
-- Sign in with a mobile number (WhatsApp/SMS code) or email code; name and referral code for new accounts.
+- Sign in with a mobile number (WhatsApp/SMS code) or email code; new accounts give their name, the email
+  address (invoices, refund updates) or mobile number they didn't sign in with, and an optional referral code.
 - Delivery addresses, with "Service unavailable" outside the delivery area (Sector 40, 44 and 45 in
   Gurugram, as set on the backend).
 - Checkout: offers and coupon codes, wallet, cooking note and the bill from the server, then "Proceed to pay":

@@ -182,6 +182,7 @@ button.btn { font-family: inherit; cursor: pointer; }
 .field { display: block; margin-bottom: 16px; }
 .field > span { display: block; font-size: 13.5px; font-weight: 600; margin-bottom: 6px; }
 .field i { font-style: normal; font-weight: 400; color: var(--muted); }
+.field__hint { display: block; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
 .field input, .field select, .field textarea, .phone-input {
   display: block; width: 100%; padding: 12px 14px; font: inherit; font-size: 15px; color: var(--ink);
   background: var(--white); border: 1.5px solid #EAD6D6; border-radius: 12px; transition: border-color .2s, box-shadow .2s;

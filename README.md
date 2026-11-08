@@ -171,8 +171,14 @@ To set it up: Google Cloud console → APIs & Services → Credentials → Creat
 
 What goes out by email (only when `SMTP_USER` and `SMTP_PASS` are set; without them nothing is sent):
 - A welcome email, and an order confirmation with a link to the invoice.
-- **The invoice once the order is delivered** (`backend/src/lib/invoiceMail.js`, checked every 2 minutes): the
-  bill, a "Download invoice (PDF)" button and the invoice attached. Needs an email address on the account.
+- **The invoice once the order is delivered** (`backend/src/lib/orderEmails.js`, checked every 2 minutes): the
+  bill, a "Download invoice (PDF)" button and the invoice attached.
+- **Refund updates**: when a paid order is cancelled (by the customer, the kitchen or the admin panel), how much
+  goes back and where (BiteVo wallet straight away, UPI / card through Razorpay); and for a UPI / card refund,
+  a second email once Razorpay confirms it (the Razorpay webhook).
+- Every account has an email address and a mobile number: signing up with a number asks for the email, signing
+  up with an email address asks for the number (saved as the delivery number), on the website and in the app.
+  Older accounts without an email address simply don't get these emails.
 - **Sign-in codes**: signing in with an email address, and, when signing in with a mobile number whose account
   has an email address, the code goes to that email too (either code works; the sign-in screen says so).
 

@@ -151,3 +151,41 @@ export function invoiceEmail(customer, order, { apiBase } = {}) {
     }],
   };
 }
+
+// Refund updates (lib/orderEmails.js). 'started': a paid order was cancelled; how much goes back and where (the
+// BiteVo wallet at once, UPI / card through Razorpay in a few working days). 'done': Razorpay has sent the UPI /
+// card refund.
+const PAY_NAMES = { upi: 'UPI', card: 'card', netbanking: 'bank account', wallet: 'wallet' };
+export function refundEmail(customer, order, stage) {
+  const r = order.refund;
+  const toSource = r.to === 'source';
+  const sourcePart = toSource ? Math.max(0, r.amount - (r.wallet || 0)) : 0;
+  const walletPart = toSource ? r.wallet || 0 : r.amount;
+  const via = PAY_NAMES[order.payment?.method] || order.paymentMethod || 'original payment method';
+  const row = (label, value, note) => `<tr><td style="padding:8px 0;font-size:14px;color:#333">${label}${note ? `<br><span style="font-size:12.5px;color:#888">${note}</span>` : ''}</td><td align="right" valign="top" style="padding:8px 0;font-size:15px;font-weight:bold;color:#1E7B34">${value}</td></tr>`;
+  const link = { href: `${config.siteUrl}/orders/${order._id}`, label: 'View your order' };
+  if (stage === 'done') {
+    return {
+      to: customer.email,
+      subject: `Refund of ${money(sourcePart)} sent to your ${via} · order #${order.orderNo}`,
+      html: layout('Your refund is on its way to you',
+        p(`Hi ${esc(firstName(customer.name))}, Razorpay has sent <b>${money(sourcePart)}</b> back to your ${esc(via)} for order <b>#${esc(order.orderNo)}</b>.`)
+        + p('Most banks show it within 5–7 working days. If it isn’t there after that, reply to this email with the refund ID below.')
+        + (r.razorpayRefundId ? p(`<span style="color:#888">Refund ID: ${esc(r.razorpayRefundId)}</span>`) : ''),
+        link),
+      text: `Razorpay has sent ${money(sourcePart)} back to your ${via} for order ${order.orderNo}. Banks usually show it within 5-7 working days.${r.razorpayRefundId ? ` Refund ID: ${r.razorpayRefundId}` : ''}`,
+    };
+  }
+  const rows = (walletPart > 0 ? row('To your BiteVo wallet', money(walletPart), 'Added straight away, ready for your next order') : '')
+    + (sourcePart > 0 ? row(`To your ${esc(via)}`, money(sourcePart), `Through Razorpay, 5–7 working days${r.razorpayRefundId ? ` · refund ID ${esc(r.razorpayRefundId)}` : ''}`) : '');
+  return {
+    to: customer.email,
+    subject: `Order #${order.orderNo} cancelled · ${money(r.amount)} refund`,
+    html: layout(`Your refund of ${money(r.amount)}`,
+      p(`Hi ${esc(firstName(customer.name))}, your order <b>#${esc(order.orderNo)}</b> was cancelled${order.cancelReason ? ` (${esc(order.cancelReason)})` : ''}. Here’s where your money goes:`)
+      + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 12px;border-top:1px solid #F0E1E1;border-bottom:1px solid #F0E1E1">${rows}</table>`
+      + (sourcePart > 0 ? p('We’ll email you again when Razorpay has sent it.') : ''),
+      link),
+    text: `Order ${order.orderNo} was cancelled. Refund of ${money(r.amount)}: ${walletPart > 0 ? `${money(walletPart)} to your BiteVo wallet` : ''}${walletPart > 0 && sourcePart > 0 ? ', ' : ''}${sourcePart > 0 ? `${money(sourcePart)} to your ${via} (5-7 working days)` : ''}.`,
+  };
+}

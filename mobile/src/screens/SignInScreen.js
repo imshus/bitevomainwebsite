@@ -20,6 +20,10 @@ export default function SignInScreen({ navigation }) {
   const [sent, setSent] = useState(null); // the API's answer: { phone } or { email }, with devCode and resendAfterSecs
   const [code, setCode] = useState('');
   const [name, setName] = useState(existing?.name || '');
+  // New accounts give what they didn't sign in with: an email address (invoices, refunds) or a mobile number
+  // (the delivery partner calls it).
+  const [mail, setMail] = useState('');
+  const [mobile, setMobile] = useState('');
   const [refCode, setRefCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -61,10 +65,20 @@ export default function SignInScreen({ navigation }) {
     }
   });
 
+  const who = existing; // the signed-in customer (set as soon as the code is right)
+  const needsEmail = step === 'name' && who && !who.email;
+  const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail.trim());
+  const needsMobile = step === 'name' && who && !who.phone && !who.deliveryPhone;
+  const mobileOk = /^[6-9]\d{9}$/.test(mobile.replace(/\D/g, ''));
+
   const saveName = () => run(async () => {
     const refer = config?.referral ? refCode.trim() : '';
     if (refer) await api.referralLookup(refer).catch(() => { throw new Error('That referral code doesn’t exist. Check it, or leave it empty.'); });
-    let saved = await api.updateMe({ name: name.trim() });
+    let saved = await api.updateMe({
+      name: name.trim(),
+      ...(needsEmail && { email: mail.trim() }),
+      ...(needsMobile && { deliveryPhone: mobile.replace(/\D/g, '') }),
+    });
     if (refer) saved = (await api.applyReferral(refer).catch(() => null))?.customer || saved;
     done(saved);
   });
@@ -142,6 +156,24 @@ export default function SignInScreen({ navigation }) {
             <Text style={st.h}>What should we call you?</Text>
             <Text style={st.lead}>Your name goes on your orders, so our delivery partner knows who to ask for.</Text>
             <TextInput value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor={C.faint} autoFocus autoComplete="name" style={st.input} />
+            {needsEmail && (
+              <>
+                <Text style={st.label}>Email address</Text>
+                <TextInput value={mail} onChangeText={setMail} placeholder="you@example.com" placeholderTextColor={C.faint} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" style={st.input} />
+                <Text style={st.hint}>We send your invoices and refund updates here.</Text>
+              </>
+            )}
+            {needsMobile && (
+              <>
+                <Text style={st.label}>Mobile number</Text>
+                <View style={st.phone}>
+                  <Text style={st.cc}>+91</Text>
+                  <TextInput value={mobile} onChangeText={v => setMobile(v.replace(/[^\d ]/g, '').slice(0, 11))} placeholder="98765 43210" placeholderTextColor={C.faint}
+                    keyboardType="number-pad" autoComplete="tel" textContentType="telephoneNumber" style={st.phoneInput} />
+                </View>
+                <Text style={st.hint}>Our delivery partner calls this number when they reach you.</Text>
+              </>
+            )}
             {config?.referral && (
               <>
                 <Text style={st.label}>Referral code (optional)</Text>
@@ -149,7 +181,7 @@ export default function SignInScreen({ navigation }) {
               </>
             )}
             {error ? <Text style={st.error}>{error}</Text> : null}
-            <Button title="Continue" onPress={saveName} disabled={name.trim().length < 2} busy={busy} />
+            <Button title="Continue" onPress={saveName} disabled={name.trim().length < 2 || (needsEmail && !mailOk) || (needsMobile && !mobileOk)} busy={busy} />
           </View>
         )}
         <Text style={st.fine}>By continuing you agree to BiteVo’s Terms and Privacy Policy.</Text>
@@ -165,6 +197,7 @@ const st = StyleSheet.create({
   h: { fontSize: 22, fontWeight: '800', color: C.ink },
   lead: { fontSize: 14.5, color: C.muted, lineHeight: 21 },
   label: { fontSize: 13, fontWeight: '700', color: C.ink, marginTop: 4 },
+  hint: { fontSize: 12.5, color: C.muted, marginTop: -4 },
   phone: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#DADADA', borderRadius: 12, height: 52, paddingHorizontal: 14, gap: 10 },
   cc: { fontSize: 16, fontWeight: '700', color: C.ink },
   phoneInput: { flex: 1, fontSize: 17, color: C.ink, letterSpacing: 0.5 },

@@ -21,6 +21,10 @@ export default function LoginModal({ reason, existing, onDone }) {
   const [sent, setSent] = useState(null); // { phone } or { email }, with devCode and resendAfterSecs
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  // New accounts give what they didn't sign in with: an email address (invoices, refunds) or a mobile number
+  // (the delivery partner calls it).
+  const [mail, setMail] = useState('');
+  const [mobile, setMobile] = useState('');
   const { data: config } = useConfig();
   const [invite] = useState(getInvite);
   const [refCode, setRefCode] = useState(() => invite?.code || '');
@@ -78,7 +82,11 @@ export default function LoginModal({ reason, existing, onDone }) {
     const code = config?.referral ? refCode.trim() : '';
     // Check the code first, so a typo can be fixed before anything is saved.
     if (code) await api.referralLookup(code).catch(() => { throw new Error('That referral code doesn’t exist. Check it, or leave it empty.'); });
-    let saved = await api.updateMe({ name });
+    let saved = await api.updateMe({
+      name,
+      ...(needsEmail && { email: mail.trim() }),
+      ...(needsMobile && { deliveryPhone: mobile.replace(/\D/g, '') }),
+    });
     if (code) saved = (await api.applyReferral(code).catch(() => null))?.customer || saved;
     clearInvite();
     onDone(saved);
@@ -95,6 +103,11 @@ export default function LoginModal({ reason, existing, onDone }) {
     setCode(digits);
     if (digits.length === 6 && !busy) verify(digits);
   };
+
+  const needsEmail = step === 'name' && customer && !customer.email;
+  const mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail.trim());
+  const needsMobile = step === 'name' && customer && !customer.phone && !customer.deliveryPhone;
+  const mobileOk = /^[6-9]\d{9}$/.test(mobile.replace(/\D/g, ''));
 
   // Closing at the name step keeps the customer signed in, but they'll be asked for a name before ordering.
   const close = () => onDone(step === 'name' && customer ? { ...customer } : null);
@@ -204,8 +217,26 @@ export default function LoginModal({ reason, existing, onDone }) {
           <p className="login__lead">What should we call you? Our delivery partner will ask for this name.</p>
           <label className="field">
             <span>Your name</span>
-            <input ref={input} type="text" autoComplete="name" autoCapitalize="words" enterKeyHint="done" value={name} onChange={e => setName(e.target.value)} maxLength={60} required />
+            <input ref={input} type="text" autoComplete="name" autoCapitalize="words" enterKeyHint={needsEmail ? 'next' : 'done'} value={name} onChange={e => setName(e.target.value)} maxLength={60} required />
           </label>
+          {needsEmail && (
+            <label className="field">
+              <span>Email address</span>
+              <input type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck="false" enterKeyHint="done" value={mail} onChange={e => setMail(e.target.value)} maxLength={120} placeholder="you@example.com" required />
+              <small className="field__hint">We send your invoices and refund updates here.</small>
+            </label>
+          )}
+          {needsMobile && (
+            <label className="field">
+              <span>Mobile number</span>
+              <div className="phone-input">
+                <span>+91</span>
+                <input type="tel" inputMode="numeric" autoComplete="tel-national" enterKeyHint="done" placeholder="98765 43210"
+                  value={mobile} onChange={e => setMobile(e.target.value.replace(/[^\d ]/g, '').slice(0, 11))} required />
+              </div>
+              <small className="field__hint">Our delivery partner calls this number when they reach you.</small>
+            </label>
+          )}
           {config?.referral && (
             <label className="field">
               <span>Referral code <i>(optional)</i></span>
@@ -217,7 +248,7 @@ export default function LoginModal({ reason, existing, onDone }) {
             </label>
           )}
           {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="btn btn--red btn--block" disabled={busy || name.trim().length < 2}>{busy ? 'Saving…' : 'Continue'}</button>
+          <button className="btn btn--red btn--block" disabled={busy || name.trim().length < 2 || (needsEmail && !mailOk) || (needsMobile && !mobileOk)}>{busy ? 'Saving…' : 'Continue'}</button>
         </form>
       )}
     </Modal>

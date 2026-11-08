@@ -8,9 +8,10 @@ import { deliveryCheck } from '../lib/maps.js';
 import { deliveryAreaRule, areaOf } from '../lib/deliveryArea.js';
 import { settleReferrals } from '../lib/referrals.js';
 import { settleOffers } from '../lib/offers.js';
-import { serialize, LIVE_STATUSES } from '../lib/rules.js';
+import { serialize, normalizePhone, LIVE_STATUSES } from '../lib/rules.js';
 import { requireCustomer, publicCustomer, clearSessionCookie } from '../auth.js';
 import { walletBalance } from '../pricing.js';
+import { sendMail, welcomeEmail } from '../lib/mail.js';
 
 export const router = Router();
 router.use(requireCustomer);
@@ -32,7 +33,24 @@ router.patch('/', async (req, res) => {
     changes.email = text(req.body.email, 120).toLowerCase();
     if (changes.email && !EMAIL.test(changes.email)) throw badRequest('That email address doesn’t look right.');
   }
+  // A mobile number for deliveries, for accounts made with an email address (not a sign-in number: that would
+  // need a code sent to it). Checkout uses it, so it isn't asked for again there.
+  if ('deliveryPhone' in (req.body || {})) {
+    changes.deliveryPhone = normalizePhone(req.body.deliveryPhone);
+    if (!changes.deliveryPhone) throw badRequest('Enter a valid 10-digit mobile number.');
+  }
+  // Signing up (a new account gets its name): every account has both an email address (invoices and refund
+  // updates) and a mobile number (the delivery partner calls it). Phone sign-ups give the email here, email
+  // sign-ups the number; Google accounts have both already.
+  const signingUp = Boolean(changes.name) && !req.customer.name;
+  if (signingUp && !(changes.email ?? req.customer.email)) {
+    throw badRequest('Enter your email address. We send your invoices and refund updates there.');
+  }
+  if (signingUp && !(req.customer.phone || changes.deliveryPhone || req.customer.deliveryPhone)) {
+    throw badRequest('Enter your mobile number. Our delivery partner calls it when they reach you.');
+  }
   const saved = await store.update('customers', req.customer._id, { ...changes, updatedAt: nowIso() });
+  if (signingUp && saved.email) sendMail(welcomeEmail(saved)); // the welcome email, now that it has an address
   // Keep the name on the customer's open sessions in step (shown on the admin panel's Login status page).
   if (changes.name && changes.name !== req.customer.name) {
     await store.updateMany('sessions', { userId: req.customer._id, role: 'customer', revokedAt: null }, { userName: changes.name });
