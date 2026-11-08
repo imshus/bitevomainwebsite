@@ -4,6 +4,7 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 import { money } from './rules.js';
+import { invoicePath } from './invoice.js';
 
 let transport = null;
 export const mailEnabled = () => Boolean(config.mail.user && config.mail.pass);
@@ -88,7 +89,11 @@ export function orderEmail(customer, order) {
   const line = (label, value, bold) => `<tr><td style="padding:4px 0;font-size:14px;color:${bold ? '#1A1A1A' : '#666'};${bold ? 'font-weight:bold' : ''}">${label}</td><td align="right" style="padding:4px 0;font-size:14px;${bold ? 'font-weight:bold' : 'color:#666'}">${value}</td></tr>`;
   const a = order.address || {};
   const address = [a.line1, a.line2, a.landmark && `Near ${a.landmark}`, a.pincode].filter(Boolean).map(esc).join(', ');
-  const pay = order.paymentMethod === 'Wallet' ? 'Paid from your BiteVo wallet' : order.walletUsed > 0 ? `${money(order.walletUsed)} from your wallet, the rest in cash on delivery` : 'Cash on delivery';
+  const wallet = order.walletUsed > 0 ? `${money(order.walletUsed)} from your wallet, ` : '';
+  const pay = order.payment?.provider === 'razorpay' ? `${wallet}${money(order.payment.amount)} paid online (${esc(order.paymentMethod || 'Razorpay')})`
+    : order.paymentMethod === 'Wallet' ? 'Paid from your BiteVo wallet'
+    : order.walletUsed > 0 ? `${wallet}the rest in cash on delivery` : 'Cash on delivery';
+  const invoice = `${config.apiUrl || config.siteUrl}${invoicePath(order._id, 90)}`;
   return {
     to: customer.email,
     subject: `Order ${order.orderNo} placed · ${money(order.total)}`,
@@ -102,8 +107,9 @@ export function orderEmail(customer, order) {
       + line('Total', money(order.total), true)
       + `</table>`
       + p(`<br><b>Payment:</b> ${pay}`)
-      + (address ? p(`<b>Delivering to:</b> ${address}`) : ''),
+      + (address ? p(`<b>Delivering to:</b> ${address}`) : '')
+      + p(`<a href="${esc(invoice)}" style="color:#B71C1C;font-weight:bold">Download your invoice</a> (the full bill, to save as a PDF)`),
       { href: `${config.siteUrl}/orders/${order._id}`, label: 'Track your order' }),
-    text: `Order ${order.orderNo} placed. Total ${money(order.total)}. Track it: ${config.siteUrl}/orders/${order._id}`,
+    text: `Order ${order.orderNo} placed. Total ${money(order.total)}. Track it: ${config.siteUrl}/orders/${order._id} · Invoice: ${invoice}`,
   };
 }

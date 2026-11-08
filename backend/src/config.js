@@ -81,8 +81,12 @@ export const config = {
   otpDevMode: process.env.OTP_DEV_MODE !== 'false',
   // Sign-in codes on WhatsApp/SMS through MiniMoth (see lib/sms.js). Used once OTP_DEV_MODE=false.
   sms: { minimothKey: (process.env.MINIMOTH_API_KEY || '').trim() },
-  // Online payments through Razorpay (see lib/razorpay.js). Both keys set = "Pay online" at checkout.
-  razorpay: { keyId: (process.env.RAZORPAY_KEY_ID || '').trim(), keySecret: (process.env.RAZORPAY_KEY_SECRET || '').trim() },
+  // Online payments through Razorpay (see lib/razorpay.js). Both keys set = "Pay online" at checkout. The admin
+  // panel's and rider app's .env call them ROZERPAY_API / ROZERPAY_SECRET; those names work here too.
+  razorpay: {
+    keyId: (process.env.RAZORPAY_KEY_ID || process.env.ROZERPAY_API || '').trim(),
+    keySecret: (process.env.RAZORPAY_KEY_SECRET || process.env.ROZERPAY_SECRET || '').trim(),
+  },
   // Google Maps Platform. The server key is used only here, for place search, place details and
   // turning a map pin into an address. The browser key draws the map, so restrict it to the
   // website's domains in Google Cloud (it falls back to the server key, which is fine on localhost).
@@ -99,6 +103,21 @@ export const config = {
   // Road routes on the order page's live map, from an OSRM server: the same as the rider app's ROUTING_URL.
   // The public demo server is for light use; set your own for heavy traffic. Empty = a straight line.
   routingUrl: (process.env.ROUTING_URL ?? 'https://router.project-osrm.org').trim().replace(/\/+$/, ''),
+  // About how long the kitchen takes to cook an order, in minutes: the order page's arrival time waits for it
+  // when the delivery partner gets to the kitchen before the food is ready.
+  prepMinutes: Math.max(0, num(process.env.PREP_MINUTES, 12)),
+  // The business details on order invoices (lib/invoice.js). With GSTIN set the invoice is a "Tax invoice" that
+  // splits the GST included in the prices (GST_RATE, 5% for restaurants) into CGST and SGST.
+  business: {
+    name: (process.env.BUSINESS_NAME || 'BiteVo').trim(),
+    legalName: (process.env.BUSINESS_LEGAL_NAME || '').trim(),
+    address: (process.env.BUSINESS_ADDRESS || '').replace(/\\n/g, '\n').trim(), // "\n" in .env starts a new line
+    gstin: (process.env.GSTIN || '').trim().toUpperCase(),
+    gstRate: Math.max(0, num(process.env.GST_RATE, 5)),
+    fssai: (process.env.FSSAI_LICENSE || '').trim(),
+    phone: (process.env.SUPPORT_PHONE || '+91 93193 46656').trim(),
+    email: (process.env.SUPPORT_EMAIL || 'info@bitevo.in').trim(),
+  },
   // Where the kitchen delivers: these areas of this city (see lib/deliveryArea.js); everywhere else shows
   // "Service unavailable". DELIVERY_AREAS set but empty = no area rule (then the distance above decides).
   delivery: {
@@ -106,6 +125,9 @@ export const config = {
     areas: list(process.env.DELIVERY_AREAS ?? 'Sector 40, Sector 44, Sector 45'),
   },
   // Public address of the website, used for links in emails.
+  // This API's own public address, for links in emails (the invoice). Empty = the website's address (SITE_URL),
+  // right when the API also serves the website.
+  apiUrl: (process.env.API_PUBLIC_URL || '').trim().replace(/\/+$/, ''),
   siteUrl: (process.env.SITE_URL || list(process.env.CLIENT_ORIGIN || 'http://localhost:2002')[0]).replace(/\/$/, ''),
   // "Continue with Google": the OAuth 2.0 Client ID (Web application) from Google Cloud. Empty = hidden.
   googleClientId: (process.env.GOOGLE_CLIENT_ID || '').trim(),

@@ -25,3 +25,4 @@ export const Home = p => <Icon {...p}><Path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1
 export const Tag = p => <Icon {...p}><Path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" /><Circle cx="7.5" cy="7.5" r="1.5" /></Icon>;
 export const Alert = p => <Icon {...p}><Circle cx="12" cy="12" r="9" /><Path d="M12 8v5M12 16h.01" /></Icon>;
 export const Back = p => <Icon {...p}><Path d="M19 12H5M12 19l-7-7 7-7" /></Icon>;
+export const Bike = p => <Icon {...p}><Circle cx="5.5" cy="17" r="3.5" /><Circle cx="18.5" cy="17" r="3.5" /><Path d="M5.5 17 9 9h5l4.5 8M14 9l-2-4h-2M9 9l3 8" /></Icon>;

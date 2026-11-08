@@ -4,6 +4,9 @@
 
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
+// An order's invoice page (the API's invoice template, printable as a PDF), for the signed-in customer.
+export const invoiceUrl = orderId => `${BASE}/api/orders/${encodeURIComponent(orderId)}/invoice`;
+
 export class ApiError extends Error {
   constructor(message, status = 0, data = null) {
     super(message);

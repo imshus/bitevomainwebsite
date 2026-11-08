@@ -70,8 +70,10 @@ export const api = {
   applyReferral: code => post('/me/referrals/apply', { code }),
 
   quote: cart => post('/orders/quote', cart, { quiet401: true }),
+  payOnline: order => post('/orders/pay', order), // a Razorpay order to pay (see components/RazorpayCheckout.js)
   placeOrder: order => post('/orders', order),
   orders: () => get('/orders'),
   order: id => get(`/orders/${id}`),
   cancelOrder: id => post(`/orders/${id}/cancel`),
+  invoiceLink: id => get(`/orders/${id}/invoice-link`), // { path }: the invoice page, openable without signing in for a day
 };

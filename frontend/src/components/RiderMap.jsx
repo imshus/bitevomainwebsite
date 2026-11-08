@@ -3,13 +3,12 @@
 // delivery address, the road route from the rider to the door, and a chip with the arrival time.
 // The kitchen and home pins are the rider app's (bitevo-deliveryboy frontend/src/components/mapParts.js), so
 // both apps show the same places the same way; the rider is the rider app's blue, with a bike.
-// OpenStreetMap tiles through Leaflet (no Google key). The road route comes from the OSRM server in
-// /api/config `routing` (a dashed straight line without one). The order page loads this file only for an
-// order on its way (lazyLoad in OrderDetail.jsx).
-import { useEffect, useRef, useState } from 'react';
+// OpenStreetMap tiles through Leaflet (no Google key). The road route and the times come from the order page
+// (useLiveTrip in lib/eta.js; a dashed straight line without a route). The order page loads this file only for
+// an order on its way (lazyLoad in OrderDetail.jsx).
+import { useEffect, useRef } from 'react';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useConfig } from '../state/menu.js';
 
 const RED = '#B71C1C';
 const STORE_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h16l-1.5-5h-13z"/><path d="M5 9v11h14V9"/><path d="M9 20v-5h6v5"/></svg>';
@@ -24,48 +23,19 @@ const riderIcon = () => L.divIcon({
   iconSize: [56, 56], iconAnchor: [28, 28],
 });
 const ll = p => [p.lat, p.lng];
-const metres = (a, b) => L.latLng(ll(a)).distanceTo(L.latLng(ll(b)));
-
-// The road route rider → door: asked again only once the rider has moved 150 m or 45 s have passed (the public
-// OSRM server is for light use). null while there's none (then the map draws a straight line).
-function useRoute(base, from, to) {
-  const [route, setRoute] = useState(null);
-  const last = useRef(null);
-  const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  useEffect(() => {
-    if (!base || !from || !to) return;
-    const prev = last.current;
-    if (prev && Date.now() - prev.at < 45000 && metres(prev.from, from) < 150) return;
-    last.current = { at: Date.now(), from };
-    fetch(`${base}/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`)
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(d => {
-        const r = d.routes?.[0];
-        if (!r || !alive.current) return;
-        setRoute({
-          line: r.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
-          minutes: Math.max(1, Math.round(r.duration / 60)),
-          km: Math.round(r.distance / 100) / 10,
-        });
-      })
-      .catch(() => { if (alive.current) { setRoute(null); last.current = null; } });
-  }, [base, from?.lat, from?.lng, to?.lat, to?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
-  return route;
-}
 
 /**
  * rider       { lat, lng, heading } the rider's live position
  * home        { lat, lng } the delivery address, or null when it has no location
+ * kitchen     { lat, lng, name } the kitchen, or null when its position isn't set
  * leg         'to_kitchen' (before pickup: the route and chip are to the kitchen) or 'to_customer'
- * distanceKm  the straight distance from the API to where the rider is heading, for the chip without a road route
+ * route       the road route to where the rider is heading (useLiveTrip), or null
+ * eta         the arrival time (useLiveTrip): its `leg` is the ride the rider is on now, for the chip
+ * distanceKm  the straight distance from the API to where the rider is heading, for the chip without a time
  */
-export default function RiderMap({ rider, home, leg = 'to_customer', distanceKm }) {
-  const { data: config } = useConfig();
-  const kitchen = config?.kitchen || null;
+export default function RiderMap({ rider, home, kitchen, leg = 'to_customer', route, eta, distanceKm }) {
   const toKitchen = leg === 'to_kitchen';
   const target = toKitchen ? kitchen : home; // where the rider is heading now
-  const route = useRoute(config?.routing, rider, target);
   const box = useRef(null);
   const map = useRef(null);
   const layers = useRef({});
@@ -142,19 +112,20 @@ export default function RiderMap({ rider, home, leg = 'to_customer', distanceKm 
     else if (!map.current.getBounds().pad(-0.15).contains(ll(rider))) map.current.panTo(ll(rider));
   }, [rider.lat, rider.lng, rider.heading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The chip, as delivery apps show it: the time (or distance) big, what it's to small. The time is the road
-  // route's estimate, so it says "about".
+  // The chip, as delivery apps show it: the rider's ride now (to the kitchen, then to the door), the time big,
+  // what it's to and how far small. It's an estimate, so it says "about". (The card above the map gives the
+  // arrival time at the door, cooking time included.)
   const where = toKitchen ? 'to the kitchen' : 'to your door';
-  const eta = toKitchen && distanceKm != null && distanceKm < 0.1 ? { big: 'At the kitchen' }
+  const chip = toKitchen && distanceKm != null && distanceKm < 0.1 ? { big: 'At the kitchen' }
     : !toKitchen && distanceKm != null && distanceKm < 0.2 ? { big: 'Almost there' }
-    : route ? { big: `~${route.minutes} min`, small: `${where} · ${route.km} km` }
+    : eta ? { big: `~${eta.leg.minutes} min`, small: `${where} · ${eta.leg.km} km` }
     : distanceKm != null ? { big: `${distanceKm} km`, small: where }
     : { big: toKitchen ? 'Going to the kitchen' : 'On the way' };
   return (
     <div className="rider-map">
       <div className="rider-map__frame">
         <div ref={box} className="rider-map__map" role="img" aria-label={toKitchen ? 'Map with your delivery partner on the way to the kitchen' : 'Map with your delivery partner on the way to you'} />
-        <p className="rider-map__eta" aria-live="polite"><b>{eta.big}</b>{eta.small && <span>{eta.small}</span>}</p>
+        <p className="rider-map__eta" aria-live="polite"><b>{chip.big}</b>{chip.small && <span>{chip.small}</span>}</p>
         <button type="button" className="rider-map__recenter" onClick={frame} aria-label="Show the rider and your address">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="7.5" /></svg>
         </button>

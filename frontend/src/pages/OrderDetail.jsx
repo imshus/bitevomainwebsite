@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, invoiceUrl } from '../api.js';
 import { useAuth } from '../state/auth.jsx';
 import { useToast } from '../state/toast.jsx';
 import { Loading, LoadError, CardSkeletons } from '../components/Sections.jsx';
@@ -11,6 +11,8 @@ import { StatusPill, useReorder } from './Orders.jsx';
 import { money, formatWhen, formatTime, addressLine, ORDER_STATUS, LIVE_STATUSES } from '../lib/format.js';
 import usePageTitle from '../lib/usePageTitle.js';
 import { useLiveOrders } from '../lib/live.js';
+import { useLiveTrip } from '../lib/eta.js';
+import { useConfig } from '../state/menu.js';
 import { lazyLoad, LazyPart } from '../lib/lazy.js';
 
 // The live map (Leaflet + OpenStreetMap) is its own file, fetched only for an order that's on its way.
@@ -43,17 +45,14 @@ function stepTime(order, status) {
 
 const firstName = name => String(name || '').trim().split(/\s+/)[0] || 'Your delivery partner';
 
-// Roughly how long ago: "just now", "20 s ago", "2 min ago".
-function ago(iso) {
-  const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
-  return s < 10 ? 'just now' : s < 60 ? `${s} s ago` : `${Math.round(s / 60)} min ago`;
-}
-
-// The delivery partner's live status: who's bringing the order and, once it's on the way, how far they are
-// (from the rider app's position and the address's location). It updates with the page, every few seconds
+// The delivery partner's live status: who's bringing the order, how far they are (from the rider app's position
+// and the address's location) and, while their position is known, when the order arrives (lib/eta.js: the ride
+// to the kitchen, any cooking still left, the ride to the door). It updates with the page, every few seconds
 // while the order is live. A rider the kitchen assigned shows by name only once they accept (they may
 // decline, and then someone else is assigned).
 function RiderCard({ order }) {
+  const { data: config } = useConfig();
+  const trip = useLiveTrip(order, config);
   const r = order.rider;
   const s = order.status;
   if (s === 'cancelled' || (s === 'delivered' && !r)) return null;
@@ -81,8 +80,9 @@ function RiderCard({ order }) {
       : r.distanceKm != null ? `Is on the way to the kitchen, ${r.distanceKm} km away from it, to pick up your order.`
       : 'Is on the way to the kitchen to pick up your order.';
   }
-  const home = order.address?.lat != null ? { lat: order.address.lat, lng: order.address.lng } : null;
   const showMap = r?.position && (tone === 'live' || tone === 'set');
+  const eta = showMap ? trip.eta : null;
+  const arrivingNow = tone === 'live' && r.distanceKm != null && r.distanceKm < 0.2;
   return (
     <div className={`panel rider-card rider-card--${tone}`}>
       <div className="rider-card__row" aria-live="polite">
@@ -94,11 +94,19 @@ function RiderCard({ order }) {
           </span>
           <b>{title}</b>
           <p>{text}</p>
-          {showMap && r.locatedAt && <small className="rider-card__fresh">Location updated {ago(r.locatedAt)}</small>}
+          {eta && (
+            <p className="rider-card__eta">
+              {arrivingNow ? <b>Arriving now</b> : <><b>Arriving in ~{eta.minutes} min</b><span>by {formatTime(eta.by)}</span></>}
+            </p>
+          )}
         </div>
       </div>
       {/* The live map, while the rider app is sending the rider's position: to the kitchen, then to you. */}
-      {showMap && <LazyPart><RiderMap rider={r.position} home={home} leg={r.leg} distanceKm={r.distanceKm} /></LazyPart>}
+      {showMap && (
+        <LazyPart>
+          <RiderMap rider={r.position} home={trip.home} kitchen={trip.kitchen} leg={r.leg} route={trip.route} eta={trip.eta} distanceKm={r.distanceKm} />
+        </LazyPart>
+      )}
     </div>
   );
 }
@@ -264,7 +272,7 @@ export default function OrderDetail() {
               <div><dt>Delivery fee</dt><dd>{order.deliveryFee ? money(order.deliveryFee) : <span className="free">FREE</span>}</dd></div>
               {order.discount > 0 && <div className="bill__save"><dt>{order.couponCode ? `Offer (${order.couponCode})` : 'Offers'}</dt><dd>−{money(order.discount)}</dd></div>}
               {order.walletUsed > 0 && <div className="bill__save"><dt>Paid from wallet</dt><dd>−{money(order.walletUsed)}</dd></div>}
-              <div className="bill__total"><dt>{order.status === 'delivered' ? 'Paid' : order.status === 'cancelled' ? 'Order total' : 'To pay on delivery'}</dt><dd>{money(order.total - order.walletUsed)}</dd></div>
+              <div className="bill__total"><dt>{order.paidOnline ? 'Paid online' : order.status === 'delivered' ? 'Paid' : order.status === 'cancelled' ? 'Order total' : 'To pay on delivery'}</dt><dd>{money(order.total - order.walletUsed)}</dd></div>
               {order.cashback > 0 && order.status !== 'cancelled' && (
                 <p className="bill__hint bill__hint--green">{money(order.cashback)} cashback {order.status === 'delivered' ? 'added to' : 'goes to'} your wallet{order.status === 'delivered' ? '' : ' after delivery'}</p>
               )}
@@ -287,6 +295,7 @@ export default function OrderDetail() {
                 <button type="button" className="btn btn--outline" onClick={cancel} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel order'}</button>
               )}
               {!live && <button type="button" className="btn btn--red" onClick={() => reorder(order)}>Order again</button>}
+              <a href={invoiceUrl(order._id)} target="_blank" rel="noreferrer" className="btn btn--outline">Invoice</a>
               <Link to={`/support?order=${encodeURIComponent(order.orderNo)}`} className="btn btn--outline">Get help</Link>
             </div>
           </div>

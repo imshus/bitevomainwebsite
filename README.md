@@ -61,7 +61,28 @@ production).
   need `KITCHEN_LAT` / `KITCHEN_LNG` (the same values as the rider app's). The position comes from the rider app
   (the rider's `location`, and `riderLocation` on the order while it's carried) and is shown only to that order's
   customer, only while the order is live, and only when it's under 3 minutes old.
+- The live arrival time on the order page ("Arriving in ~14 min, by 7:52 pm", `frontend/src/lib/eta.js`), from
+  the rider's position: before pickup, the ride to the kitchen, or the food still cooking if that takes longer
+  (`PREP_MINUTES`, default 12, from when the kitchen started cooking), a minute to collect it, then the ride from
+  the kitchen to the door; once picked up, the ride to the door. Ride times are the OSRM road route's, kept
+  current as the rider gets nearer; without a route, the distance on city roads at about 22 km/h. The map's chip
+  shows the ride the rider is on now (to the kitchen, then to the door).
 - See wallet balance and history; send a message to support.
+- **Pay online** with Razorpay (UPI, cards, netbanking) on the website and in the app, or cash on delivery.
+  The keys are `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` in `backend/.env` (or the admin panel's names,
+  `ROZERPAY_API` / `ROZERPAY_SECRET`); without them checkout offers cash on delivery and the wallet only.
+  An online order is placed only after the server has checked the payment's signature and the payment itself
+  with Razorpay (`backend/src/lib/razorpay.js`); a payment that comes in without an order is refunded by the
+  API's 3-minute check. The website opens Razorpay's window; the app opens Razorpay's checkout in a web view,
+  which returns through `POST /api/payments/razorpay-return` (`backend/src/routes/payments.js`).
+- **Invoice** for every order: the "Invoice" button on the order page (website and app) and the link in the
+  order email open a printable invoice (Save as PDF) with the whole bill: business details (`BUSINESS_*`,
+  `GSTIN`, `FSSAI_LICENSE`), invoice number per financial year (`INV/26-27/BV1108-007`), customer and delivery
+  address, each item with quantity, rate and amount (free items marked), delivery fee, offer, GST split into
+  CGST + SGST when `GSTIN` is set, order total, and how it was paid (wallet, online with the Razorpay payment
+  ID, cash on delivery), cashback, kitchen note and any refund. Template: `backend/src/lib/invoice.js`. The app
+  and emails use a signed link (`/api/invoices/:id?e=…&s=…`, a day from the app, 90 days from emails) that
+  works without signing in.
 - Refer friends: share a code or link, and earn wallet cashback when a friend completes their first orders.
 
 ## Delivery addresses
@@ -186,7 +207,6 @@ which can include real website customers. Use `DEMO_MODE=false` with real custom
 
 ## Not built yet
 
-- Online payments (UPI / card via a gateway such as Razorpay). Orders are pay-on-delivery or wallet.
 - SMS delivery of sign-in codes (see above).
 - The admin panel's order screen doesn't show the delivery address or kitchen note yet.
 

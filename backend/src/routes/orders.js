@@ -1,5 +1,6 @@
 // Placing and following orders. Orders are written in the admin panel's format, so the kitchen
 // sees them on the panel's Orders page and moves them along (preparing → out for delivery → delivered).
+import crypto from 'node:crypto';
 import { Router } from 'express';
 import { store } from '../db/index.js';
 import { objectId } from '../lib/ids.js';
@@ -13,6 +14,7 @@ import { quote, hasOrdered } from '../pricing.js';
 import { settleOffers } from '../lib/offers.js';
 import { config } from '../config.js';
 import { razorpayEnabled, createRazorpayOrder, signatureValid, confirmPayment, methodLabel, refundUnused, refundPayment } from '../lib/razorpay.js';
+import { invoiceHtml, invoiceHeaders, invoicePath } from '../lib/invoice.js';
 
 export const router = Router();
 
@@ -259,6 +261,21 @@ router.post('/', async (req, res) => {
   }
   res.status(placed.again ? 200 : 201).json(publicOrder(placed.order));
   if (!placed.again && customer.email) sendMail(orderEmail(customer, placed.order)); // confirmation email, if they gave an address
+});
+
+// The order's invoice (lib/invoice.js): the page itself for the signed-in customer (the website's order page
+// links to it), and a link to it that works without signing in for a day (the app opens that in the phone's
+// browser, where it can be saved as a PDF).
+router.get('/:id/invoice', async (req, res) => {
+  const order = await ownOrder(req);
+  const nonce = crypto.randomBytes(16).toString('base64');
+  invoiceHeaders(res, nonce);
+  res.send(invoiceHtml(order, { nonce }));
+});
+
+router.get('/:id/invoice-link', async (req, res) => {
+  const order = await ownOrder(req);
+  res.json({ path: invoicePath(order._id, 1) });
 });
 
 // Customers can cancel until the kitchen accepts the order. Anything paid from the wallet goes back to it;

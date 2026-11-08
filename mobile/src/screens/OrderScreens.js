@@ -1,14 +1,20 @@
-// "My orders" and one order's page, which follows the order live (every 15 seconds) while it's on its way.
-import { useCallback, useEffect, useState } from 'react';
-import { Alert as Confirm, FlatList, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+// "My orders" and one order's page, which follows the order live (every 5 seconds) while it's on its way, with
+// the delivery partner's live status and, while the rider app shares where they are, the live map.
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, AppState, Alert as Confirm, FlatList, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
 import { addressLine, formatTime, formatWhen, itemsSummary, LIVE_STATUSES, money, ORDER_STATUS } from '../lib/format';
-import { SUPPORT_PHONE } from '../config';
+import { API_URL, SUPPORT_PHONE } from '../config';
 import { Button, Card, Empty, LoadError, Loading, Pill } from '../components/ui';
-import { Check, Receipt } from '../components/Icons';
+import { Bike, Check, Receipt } from '../components/Icons';
+import RiderMap from '../components/RiderMap';
+import { useLiveTrip } from '../lib/eta';
+import { useConfig } from '../state/data';
 import { C, R } from '../theme';
+
+const REFRESH_MS = 5000; // while the order is live, so the steps, the rider and the map move within seconds
 
 const Status = ({ status }) => <Pill tone={ORDER_STATUS[status]?.tone || 'grey'}>{ORDER_STATUS[status]?.short || status}</Pill>;
 
@@ -70,23 +76,131 @@ const STEPS = [
   { status: 'delivered', title: 'Delivered', text: 'Enjoy your meal!' },
 ];
 
+const firstName = name => String(name || '').trim().split(/\s+/)[0] || 'Your delivery partner';
+
+// The chip's dot breathes while the order is on its way.
+function Breathing({ on, color }) {
+  const v = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!on) return undefined;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(v, { toValue: 0.3, duration: 550, useNativeDriver: true }),
+      Animated.timing(v, { toValue: 1, duration: 550, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [on, v]);
+  return <Animated.View style={[st.chipDot, { backgroundColor: color, opacity: on ? v : 1 }]} />;
+}
+
+const CHIP = { live: [C.redSoft, C.red], set: [C.greenSoft, C.green], done: ['#F1F1F1', '#555'] };
+
+// The delivery partner's live status, as on the website's order page: who's bringing the order, how far they are
+// (from the rider app's position and the address's location) and, while their position is known, when the order
+// arrives (lib/eta.js: the ride to the kitchen, any cooking still left, the ride to the door). A rider the
+// kitchen assigned shows by name only once they accept (they may decline, and then someone else is assigned).
+function RiderCard({ order }) {
+  const { data: config } = useConfig();
+  const trip = useLiveTrip(order, config);
+  const r = order.rider;
+  const s = order.status;
+  if (s === 'cancelled' || (s === 'delivered' && !r)) return null;
+  let tone; let chip = null; let title; let text;
+  const name = r && r.status !== 'requested' ? firstName(r.name) : null;
+  if (s === 'delivered') {
+    tone = 'done'; chip = 'Delivered'; title = name;
+    text = order.deliveredAt ? `Delivered your order at ${formatTime(order.deliveredAt)}.` : 'Delivered your order.';
+  } else if (!name) {
+    tone = 'wait'; title = r ? 'Being assigned' : 'Not assigned yet';
+    text = r ? 'Finding a delivery partner for your order…'
+      : s === 'placed' ? 'A delivery partner is assigned once the kitchen accepts your order.' : 'We’re assigning a delivery partner for your order.';
+  } else if (s === 'out_for_delivery') {
+    tone = 'live'; chip = 'On the way'; title = name;
+    // With the map showing, its chip gives the arrival time and road distance; the card doesn't repeat it.
+    text = r.distanceKm == null ? `Picked up your order${order.dispatchedAt ? ` at ${formatTime(order.dispatchedAt)}` : ''} and is on the way.`
+      : r.distanceKm < 0.2 ? 'Almost at your door.' : r.position ? 'Is on the way to you with your order.' : `${r.distanceKm} km away from you.`;
+  } else {
+    // Accepted, before pickup: on the way to the kitchen (or already there) when the rider app shares where they are.
+    tone = 'set'; title = name;
+    const atKitchen = r.distanceKm != null && r.distanceKm < 0.1;
+    chip = !r.position ? 'Assigned' : atKitchen ? 'At kitchen' : 'Picking up';
+    text = !r.position ? 'Will pick up your order as soon as it’s ready.'
+      : atKitchen ? 'Is at the kitchen and will pick up your order as soon as it’s ready.'
+      : r.distanceKm != null ? `Is on the way to the kitchen, ${r.distanceKm} km away from it, to pick up your order.`
+      : 'Is on the way to the kitchen to pick up your order.';
+  }
+  const showMap = Boolean(r?.position) && (tone === 'live' || tone === 'set');
+  const eta = showMap ? trip.eta : null;
+  const arrivingNow = tone === 'live' && r.distanceKm != null && r.distanceKm < 0.2;
+  const [chipBg, chipFg] = CHIP[tone] || CHIP.set;
+  const wait = tone === 'wait';
+  return (
+    <Card>
+      <View style={st.riderRow} accessibilityLiveRegion="polite">
+        <View style={[st.avatar, wait && { backgroundColor: C.amberSoft }]}>
+          {name ? <Text style={st.avatarText}>{name[0].toUpperCase()}</Text> : <Bike size={22} color={wait ? C.amber : C.red} />}
+        </View>
+        <View style={st.riderBody}>
+          <View style={st.riderTop}>
+            <Text style={st.riderLabel}>DELIVERY PARTNER</Text>
+            {chip && (
+              <View style={[st.chip, { backgroundColor: chipBg }]}>
+                <Breathing on={tone === 'live'} color={chipFg} />
+                <Text style={[st.chipText, { color: chipFg }]} numberOfLines={1}>{chip}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={st.riderName}>{title}</Text>
+          <Text style={st.riderText}>{text}</Text>
+          {eta && (
+            <View style={st.etaRow}>
+              <Text style={st.etaText}>{arrivingNow ? 'Arriving now' : `Arriving in ~${eta.minutes} min`}</Text>
+              {!arrivingNow && <Text style={st.etaBy}>by {formatTime(eta.by)}</Text>}
+            </View>
+          )}
+        </View>
+      </View>
+      {/* The live map, while the rider app is sending the rider's position: to the kitchen, then to you. */}
+      {showMap && (
+        <RiderMap rider={r.position} home={trip.home} kitchen={trip.kitchen} leg={r.leg} route={trip.route} eta={trip.eta} distanceKm={r.distanceKm} />
+      )}
+    </Card>
+  );
+}
+
 export function OrderDetailScreen({ route }) {
   const { id, justPlaced } = route.params;
   const [order, setOrder] = useState(null);
   const [error, setError] = useState(null);
   const [cancelling, setCancelling] = useState(false);
+  const [openingInvoice, setOpeningInvoice] = useState(false);
 
   const load = useCallback(() => api.order(id).then(o => { setOrder(o); setError(null); }, setError), [id]);
   useEffect(() => { load(); }, [load]);
-  // While the order is live, check for news every 15 seconds.
-  const live = order && LIVE_STATUSES.includes(order.status);
-  useEffect(() => {
+  // While the order is live, check for news every few seconds, only while this screen is showing and the app
+  // is open (and straight away on coming back to it).
+  const live = Boolean(order && LIVE_STATUSES.includes(order.status));
+  useFocusEffect(useCallback(() => {
     if (!live) return undefined;
-    const t = setInterval(load, 15000);
-    return () => clearInterval(t);
-  }, [live, load]);
+    const t = setInterval(() => { if (AppState.currentState === 'active') load(); }, REFRESH_MS);
+    const back = AppState.addEventListener('change', state => { if (state === 'active') load(); });
+    return () => { clearInterval(t); back.remove(); };
+  }, [live, load]));
 
   if (!order) return error ? <LoadError error={error} onRetry={load} /> : <Loading />;
+
+  // The invoice (the API's template with the whole bill) opens in the phone's browser, where it can be saved
+  // as a PDF or shared; its link works without signing in for a day.
+  const openInvoice = async () => {
+    setOpeningInvoice(true);
+    try {
+      const { path } = await api.invoiceLink(order._id);
+      await Linking.openURL(`${API_URL.replace(/\/$/, '')}${path}`);
+    } catch (err) {
+      Confirm.alert('Couldn’t open the invoice', err.message || 'Please try again.');
+    }
+    setOpeningInvoice(false);
+  };
 
   const reached = STEPS.findIndex(s => s.status === order.status);
   const at = status => order.history?.find(h => h.status === status)?.at;
@@ -140,6 +254,8 @@ export function OrderDetailScreen({ route }) {
         </Card>
       )}
 
+      <RiderCard order={order} />
+
       <Card style={{ gap: 8 }}>
         <Text style={st.cardTitle}>Your order</Text>
         {order.items.map((i, n) => (
@@ -166,6 +282,7 @@ export function OrderDetailScreen({ route }) {
       )}
 
       {order.status === 'placed' && <Button title="Cancel order" kind="outline" onPress={cancel} busy={cancelling} />}
+      <Button title="Invoice" kind="outline" onPress={openInvoice} busy={openingInvoice} />
       <Button title={`Need help? Call ${SUPPORT_PHONE}`} kind="outline" onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`)} />
     </ScrollView>
   );
@@ -190,4 +307,18 @@ const st = StyleSheet.create({
   bar: { width: 2, flex: 1, backgroundColor: '#E0E0E0', minHeight: 18 },
   barOn: { backgroundColor: C.green },
   stepTitle: { fontSize: 15, fontWeight: '800', color: C.ink },
+  riderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  riderBody: { flex: 1, minWidth: 0 },
+  avatar: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: C.redSoft },
+  avatarText: { color: C.red, fontSize: 19, fontWeight: '800' },
+  riderTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 24 },
+  riderLabel: { color: C.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0.6 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, flexShrink: 0 },
+  chipDot: { width: 7, height: 7, borderRadius: 4 },
+  chipText: { fontSize: 12.5, fontWeight: '700' },
+  riderName: { fontSize: 17, fontWeight: '800', color: C.ink, marginTop: 1 },
+  riderText: { fontSize: 14.5, color: '#444', marginTop: 2, lineHeight: 20 },
+  etaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8, marginTop: 8 },
+  etaText: { fontSize: 16, fontWeight: '800', color: C.green },
+  etaBy: { fontSize: 13.5, color: C.muted },
 });

@@ -82,6 +82,7 @@ android {
         applicationId "in.bitevo.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
+        // Raise versionCode by 1 for every upload to the Play Store (it refuses a code it has seen before).
         versionCode 1
         versionName "1.0"
     }
@@ -92,15 +93,26 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // The Play Store upload key: its file and passwords come from the BITEVO_UPLOAD_* lines in this PC's
+        // user-level gradle.properties (C:\Users\<you>\.gradle\gradle.properties), never from this folder.
+        // See "Play Store upload key" in mobile/README.md.
+        if (project.hasProperty('BITEVO_UPLOAD_STORE_FILE')) {
+            release {
+                storeFile file(BITEVO_UPLOAD_STORE_FILE)
+                storePassword BITEVO_UPLOAD_STORE_PASSWORD
+                keyAlias BITEVO_UPLOAD_KEY_ALIAS
+                keyPassword BITEVO_UPLOAD_KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Signed with the upload key when this PC has it; otherwise with the debug key, which is fine for
+            // installing the APK directly but which the Play Store refuses.
+            signingConfig signingConfigs.findByName('release') ?: signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }

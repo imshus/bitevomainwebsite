@@ -47,6 +47,7 @@ router.get('/config', async (req, res) => {
     // its road route comes from (null = a straight line).
     kitchen: config.maps.kitchen ? { ...config.maps.kitchen, name: config.kitchenName } : null,
     routing: config.routingUrl || null,
+    prepMinutes: config.prepMinutes, // for the arrival time before pickup: the food may still be cooking
   });
 });
 

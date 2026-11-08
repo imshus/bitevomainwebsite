@@ -278,7 +278,9 @@ button.btn { font-family: inherit; cursor: pointer; }
 .rider-card__top small { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
 .rider-card__text b { font-size: 17px; }
 .rider-card__text p { margin: 2px 0 0; font-size: 14.5px; color: #444; }
-.rider-card__fresh { margin-top: 4px; color: var(--muted); font-size: 12.5px; }
+.rider-card__text .rider-card__eta { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+.rider-card__eta b { font-size: 16px; color: var(--green); }
+.rider-card__eta span { font-size: 13.5px; color: var(--muted); }
 .rider-card__chip {
   flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
   font-size: 12.5px; font-weight: 700; background: var(--green-soft); color: var(--green);

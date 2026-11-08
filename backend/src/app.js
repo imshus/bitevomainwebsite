@@ -19,6 +19,8 @@ import { router as placeRoutes } from './routes/places.js';
 import { router as referralRoutes, meRouter as myReferralRoutes } from './routes/referrals.js';
 import { router as uploadRoutes } from './routes/uploads.js';
 import { router as riderApplicationRoutes } from './routes/riderApplications.js';
+import { router as invoiceRoutes } from './routes/invoices.js';
+import { router as paymentRoutes } from './routes/payments.js';
 
 const SITE_DIR = fileURLToPath(new URL('../../frontend/dist', import.meta.url));
 
@@ -72,6 +74,8 @@ export function createApp() {
   app.use('/api/referrals', referralRoutes);
   app.use('/api/uploads', uploadRoutes);
   app.use('/api/rider-applications', riderApplicationRoutes); // "Become a delivery partner" (no sign-in)
+  app.use('/api/invoices', invoiceRoutes); // an order's invoice from a signed link (no sign-in)
+  app.use('/api/payments', paymentRoutes); // Razorpay's return page for payments in the app (no sign-in)
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
   app.use(siteRoutes());
