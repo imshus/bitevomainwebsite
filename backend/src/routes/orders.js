@@ -7,7 +7,7 @@ import { objectId } from '../lib/ids.js';
 import { HttpError, badRequest, conflict, notFound, unauthorized, nowIso, startOfToday, text, MIN } from '../lib/http.js';
 import { serialize, money, normalizePhone, LIVE_STATUSES } from '../lib/rules.js';
 import { CUSTOMER_CANCEL_REASON } from '../lib/settings.js';
-import { deliveryCheck, distanceKm } from '../lib/maps.js';
+import { deliveryCheck, distanceKm, approxPoint } from '../lib/maps.js';
 import { sendMail, orderEmail } from '../lib/mail.js';
 import { requireCustomer, optionalCustomer } from '../auth.js';
 import { quote, hasOrdered } from '../pricing.js';
@@ -61,6 +61,14 @@ function riderOf(o, agent = null) {
   };
 }
 
+// A live order whose address was typed without a map pin gets an approximate point for its area (order page only,
+// never saved), marked `approx`, so the live map has the home, a road route and an arrival time.
+async function withApproxHome(o) {
+  if (!LIVE_STATUSES.includes(o.status) || !o.address || o.address.lat != null) return o;
+  const near = await approxPoint(o.address).catch(() => null);
+  return near ? { ...o, address: { ...o.address, lat: near.lat, lng: near.lng, approx: true } } : o;
+}
+
 // The assigned rider's record, for the live position before pickup (order page only).
 const riderAgent = o => (o.agentId && o.riderStatus !== 'requested' && LIVE_STATUSES.includes(o.status) ? store.findById('agents', o.agentId) : null);
 
@@ -112,7 +120,7 @@ router.get('/', async (req, res) => {
 // "back to UPI / card" only for orders paid online).
 router.get('/:id', async (req, res) => {
   await settleOffers(req.customer._id);
-  const order = await ownOrder(req);
+  const order = await withApproxHome(await ownOrder(req));
   const request = await store.findOne('refundRequests', { orderId: order._id });
   res.json({
     ...publicOrder(order, await riderAgent(order)),

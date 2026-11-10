@@ -105,7 +105,7 @@ function RiderCard({ order }) {
       {/* The live map, while the rider app is sending the rider's position: to the kitchen, then to you. */}
       {showMap && (
         <LazyPart>
-          <RiderMap rider={r.position} home={trip.home} kitchen={trip.kitchen} leg={r.leg} route={trip.route} eta={trip.eta} distanceKm={r.distanceKm} />
+          <RiderMap rider={r.position} home={trip.home} homeApprox={Boolean(order.address?.approx)} kitchen={trip.kitchen} leg={r.leg} route={trip.route} eta={trip.eta} distanceKm={r.distanceKm} />
         </LazyPart>
       )}
     </div>

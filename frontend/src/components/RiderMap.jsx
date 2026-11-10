@@ -33,7 +33,8 @@ const ll = p => [p.lat, p.lng];
  * eta         the arrival time (useLiveTrip): its `leg` is the ride the rider is on now, for the chip
  * distanceKm  the straight distance from the API to where the rider is heading, for the chip without a time
  */
-export default function RiderMap({ rider, home, kitchen, leg = 'to_customer', route, eta, distanceKm }) {
+// homeApprox  true when the address was typed without a map pin: `home` is only its area (the API's guess)
+export default function RiderMap({ rider, home, homeApprox = false, kitchen, leg = 'to_customer', route, eta, distanceKm }) {
   const toKitchen = leg === 'to_kitchen';
   const target = toKitchen ? kitchen : home; // where the rider is heading now
   const box = useRef(null);
@@ -84,9 +85,9 @@ export default function RiderMap({ rider, home, kitchen, leg = 'to_customer', ro
   }, [kitchen?.lat, kitchen?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    place('home', home, () => L.marker(ll(home), { icon: pin('drop', HOME_SVG), keyboard: false, zIndexOffset: 300 }).bindTooltip('You'),
-      mk => mk.setLatLng(ll(home)));
-  }, [home?.lat, home?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+    place('home', home, () => L.marker(ll(home), { icon: pin('drop', HOME_SVG), keyboard: false, zIndexOffset: 300 }).bindTooltip(homeApprox ? 'Your area (approximate)' : 'You'),
+      mk => { mk.setLatLng(ll(home)); mk.setTooltipContent(homeApprox ? 'Your area (approximate)' : 'You'); });
+  }, [home?.lat, home?.lng, homeApprox]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The way to the kitchen or the door: the road route, or a dashed straight line until there is one.
   useEffect(() => {

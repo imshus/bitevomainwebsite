@@ -204,3 +204,48 @@ export async function addressAtOsm(lat, lng) {
   place.check = deliveryCheck(place);
   return pinCache.set(key, place);
 }
+
+// An approximate point for an address typed without a map pin (no Google key), so the order page's live map still has
+// the home, a road route and an arrival time: Nominatim's search for the area or street (e.g. "Sector 45, Gurugram"),
+// sharing the one-request-a-second limit above. Never stored on the address: the rider navigates by the typed text.
+const SEARCH = 'https://nominatim.openstreetmap.org/search';
+const nearCache = new Map(); // query → { at, value }
+const NEAR_KEEP_MS = 24 * 3600000;
+const NEAR_MISS_MS = 10 * 60000;
+
+async function searchOsm(q) {
+  const hit = nearCache.get(q);
+  if (hit && Date.now() - hit.at < (hit.value ? NEAR_KEEP_MS : NEAR_MISS_MS)) return hit.value;
+  const wait = Math.max(0, osmNextAt - Date.now());
+  if (wait > 3000) return null; // busy: the page asks again on its next refresh
+  osmNextAt = Math.max(Date.now(), osmNextAt) + 1100;
+  if (wait) await new Promise(resolve => { setTimeout(resolve, wait); });
+  let value = null;
+  try {
+    const qs = new URLSearchParams({ q: `${q}, India`, format: 'jsonv2', limit: '1', countrycodes: 'in', 'accept-language': 'en' });
+    const res = await fetch(`${SEARCH}?${qs}`, { headers: { 'User-Agent': 'BiteVo/1.0 (https://bitevo.in)' }, signal: AbortSignal.timeout(6000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const best = (await res.json())?.[0];
+    if (best) value = { lat: Math.round(Number(best.lat) * 1e6) / 1e6, lng: Math.round(Number(best.lon) * 1e6) / 1e6 };
+  } catch (err) {
+    console.error(`[maps] OpenStreetMap search failed: ${err.message}`);
+    return null; // not cached: tried again next time
+  }
+  nearCache.set(q, { at: Date.now(), value });
+  if (nearCache.size > 1000) nearCache.delete(nearCache.keys().next().value);
+  return value;
+}
+
+// { lat, lng } near the typed address (the street/area line with the pincode, else the area), or null.
+export async function approxPoint(address) {
+  if (!address || (address.lat != null && address.lng != null)) return null;
+  const clean = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const line2 = clean(address.line2);
+  const area = clean(address.area);
+  const queries = [...new Set([[line2, clean(address.pincode)].filter(Boolean).join(', '), area !== line2 ? area : ''].filter(q => q.length >= 3))];
+  for (const q of queries) {
+    const found = await searchOsm(q);
+    if (found) return found;
+  }
+  return null;
+}
