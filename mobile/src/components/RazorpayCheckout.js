@@ -96,7 +96,7 @@ export default function RazorpayCheckout({ pay, display, onResult }) {
     return false;
   };
 
-  const close = () => Alert.alert('Cancel the payment?', 'If money was already taken, it is refunded automatically.', [
+  const close = () => Alert.alert('Cancel the payment?', 'If money was already taken, we still place your order, or our team refunds it.', [
     { text: 'Keep paying', style: 'cancel' },
     { text: 'Cancel payment', style: 'destructive', onPress: () => finish({ type: 'dismissed', description: 'Payment cancelled.' }) },
   ]);
