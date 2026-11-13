@@ -4,10 +4,14 @@
 // An online order is created only once its payment is in: routes/orders.js asks Razorpay for an order
 // (POST /orders/pay), the browser takes the payment in Razorpay's own window, then POST /orders checks the
 // signature and the payment with Razorpay before placing the BiteVo order. Each Razorpay order is recorded in
-// "payments" (_id = Razorpay's order id): created → paid (BiteVo order placed). If a payment comes in but no
-// order follows (the browser closed, or the cart stopped adding up), it becomes 'held' (holdPayment): the
-// website never refunds anything itself. The admin panel lists held payments (Payments without an order) and
-// an admin refunds them there (→ 'refunded').
+// "payments" (_id = Razorpay's order id, with the order the customer was placing in `request`): created → paid
+// (BiteVo order placed). If a payment comes in but the app or browser never places the order (it lost track of
+// the payment, the browser closed…), the server places it itself from `request` (routes/orders.js
+// completePayment, via onUnclaimedPayment): when the app asks (POST /orders/pay/:id/complete) or from
+// settlePayments() after 2 minutes. If it can't be placed (or the customer has ordered again since), it becomes
+// 'held' (holdPayment), as do payments started before `request` was kept, after 15 minutes. The website never
+// refunds anything itself: the admin panel lists held payments (No-order payments) and an admin refunds them
+// there (→ 'refunded').
 import crypto from 'node:crypto';
 import { store } from '../db/index.js';
 import { config } from '../config.js';
@@ -51,7 +55,7 @@ export async function paymentFor(razorpayOrderId) {
   return items.find(p => p.status === 'captured' || p.status === 'authorized') || null;
 }
 
-// routes/orders.js hands over how to finish a paid order nobody placed (it places or refunds it).
+// routes/orders.js hands over how to finish a paid order nobody placed (it places it, or holds the payment).
 let unclaimedHandler = null;
 export function onUnclaimedPayment(handler) { unclaimedHandler = handler; }
 const capture = (id, amountPaise) => call('POST', `/payments/${encodeURIComponent(id)}/capture`, { amount: amountPaise, currency: 'INR' });
@@ -157,7 +161,7 @@ export function settlePayments() {
           if (Date.parse(record.createdAt) < Date.now() - DAY) await store.updateMany('payments', { _id: record._id, status: 'created' }, { status: 'expired', updatedAt: nowIso() });
           continue;
         }
-        if (record.request && unclaimedHandler) { await unclaimedHandler(record); continue; } // places it (or refunds)
+        if (record.request && unclaimedHandler) { await unclaimedHandler(record); continue; } // places it (or holds it)
         if (paid.status === 'authorized') await capture(paid.id, paid.amount);
         await holdPayment(record, paid, 'The order wasn’t placed after the payment');
       } catch (err) {

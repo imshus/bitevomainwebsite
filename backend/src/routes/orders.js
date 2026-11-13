@@ -192,15 +192,17 @@ async function checkOrder(body, customer) {
   return { bill, phone, address };
 }
 
+// The parts of an order request that are kept with a payment, so the server can place the order itself if the app
+// or browser loses track of the payment (completePayment). Only what POST /orders reads.
 function orderRequest(body) {
   return {
-    items: Array.isArray(body.items) ? body.items : [],
+    items: Array.isArray(body.items) ? body.items.slice(0, 50).map(i => ({ productId: String(i?.productId || ''), qty: Number(i?.qty) || 0, ...(i?.portion && { portion: String(i.portion).slice(0, 40) }) })) : [],
     addressId: String(body.addressId || ''),
     couponCode: String(body.couponCode || ''),
     useWallet: Boolean(body.useWallet),
     expectedTotal: Number(body.expectedTotal),
     note: text(body.note, 200),
-    deliveryPhone: body.deliveryPhone,
+    deliveryPhone: body.deliveryPhone ? String(body.deliveryPhone).slice(0, 20) : undefined,
   };
 }
 
@@ -282,7 +284,8 @@ router.post('/pay', async (req, res) => {
 
 // Places an order (`online`: its confirmed Razorpay payment { record, payment }), one at a time, so a double
 // submit can't spend the same wallet balance twice and order numbers (BVmmdd-NNN) don't clash. Paid but not
-// placeable: refunded straight away, and the error says so. Returns { order, again } (again: placed before).
+// placeable: the payment is held for the admin panel to refund (No-order payments), and the error says so.
+// Returns { order, again } (again: placed before).
 async function placeOrderNow(customer, body, online) {
   try {
     return await serialize('orders', async () => {
@@ -311,13 +314,15 @@ async function placeOrderNow(customer, body, online) {
 
 /**
  * A payment Razorpay has, whose order the app or browser never placed (it lost track of the payment, the app was
- * closed…): place the order the customer started with (record.request) instead of refunding it. Refunds when the
- * customer has ordered again since (it would be a second order) or the order can't be placed any more.
- * Returns { order, again } once placed; { paid: false } when Razorpay has no payment; { refunded: true, message }.
+ * closed…): place the order the customer started with (record.request). When the customer has ordered again since
+ * (it would be a second order) or the order can't be placed any more, the payment is held for the admin panel to
+ * refund; the website never refunds by itself.
+ * Returns { order, again } once placed; { paid: false } when Razorpay has no payment; otherwise { refunded: true,
+ * message } (the apps only show the message).
  */
 async function completePayment(record, { apiBase } = {}) {
   if (record.status === 'paid') return { order: await store.findById('orders', record.orderId), again: true };
-  if (record.status !== 'created') return { refunded: true, message: 'This payment was refunded. Please place the order again.' };
+  if (record.status !== 'created') return { refunded: true, message: usedPayment(record) };
   const paid = await paymentFor(record._id);
   if (!paid) return { paid: false };
   const payment = await confirmPayment(paid.id, record); // checks the amount, captures it if only authorised
@@ -346,7 +351,7 @@ async function completePayment(record, { apiBase } = {}) {
     }
     return placed;
   } catch (err) {
-    return { refunded: true, message: err.message }; // placeOrderNow refunded it and says so
+    return { refunded: true, message: err.message }; // placeOrderNow held the payment and says so
   }
 }
 onUnclaimedPayment(record => completePayment(record));
@@ -361,7 +366,8 @@ router.post('/pay/:id/complete', async (req, res) => {
 });
 
 // Places an order. Paid online: `payment` = { orderId, paymentId, signature } from Razorpay. The signature and
-// the payment are checked with Razorpay first; if the order then can't be placed, the payment is refunded.
+// the payment are checked with Razorpay first; if the order then can't be placed, the payment is held for the
+// admin panel to refund (No-order payments).
 router.post('/', async (req, res) => {
   const customer = req.customer;
   const body = req.body || {};
@@ -370,12 +376,12 @@ router.post('/', async (req, res) => {
     const { orderId, paymentId, signature } = body.payment;
     if (!razorpayEnabled()) throw badRequest('Online payment isn’t set up.');
     if (!signatureValid(String(orderId), String(paymentId), String(signature))) {
-      throw badRequest('We couldn’t verify that payment. If money was taken, it will be refunded automatically.');
+      throw badRequest('We couldn’t verify that payment. If money was taken, our team will refund it.');
     }
     const record = await store.findById('payments', String(orderId));
     if (!record || record.customerId !== customer._id) throw badRequest('We couldn’t find that payment.');
     if (record.status === 'paid') return res.json(publicOrder(await store.findById('orders', record.orderId))); // a retry: already placed
-    if (record.status !== 'created') throw conflict('This payment has been refunded. Please place the order again.');
+    if (record.status !== 'created') throw conflict(usedPayment(record));
     online = { record, payment: await confirmPayment(String(paymentId), record) };
   }
 
