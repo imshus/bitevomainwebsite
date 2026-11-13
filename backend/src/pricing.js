@@ -3,7 +3,7 @@
 import { store } from './db/index.js';
 import { config } from './config.js';
 import { couponStatus, couponValue, money } from './lib/rules.js';
-import { isStoreItem, freeCoffee } from './lib/offers.js';
+import { isStoreItem } from './lib/offers.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -88,9 +88,9 @@ const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : { 1: 'st', 2: 
  * The full bill for a cart.
  * Returns { items, unavailable, itemTotal, subtotal, deliveryFee, discount, cashback, coupon, couponError,
  *           total, walletBalance, walletUsed, payable, paymentMethod, minOrderValue,
- *           firstOrder, freeDelivery, deliveryNote, freeCoffee, storeItem, deliveryCashback, offers }.
- * A free-item coupon, and the first order's free Cold Coffee, add their dish as a line marked `free`,
- * priced normally and taken off as discount (the way the admin panel reports coupon value).
+ *           firstOrder, freeDelivery, deliveryNote, storeItem, deliveryCashback, offers }.
+ * A free-item coupon adds its dish as a line marked `free`, priced normally and taken off as discount (the way
+ * the admin panel reports coupon value).
  * Guests are quoted as new customers (first order, free delivery); the order is re-quoted once they sign in.
  */
 export async function quote({ items, couponCode, useWallet }, customer) {
@@ -138,16 +138,6 @@ export async function quote({ items, couponCode, useWallet }, customer) {
     }
   }
 
-  // A free Cold Coffee on the first order of freeCoffeeFrom or more (skipped if none is available).
-  let coffee = null;
-  if (offers.freeCoffeeFrom > 0 && firstOrder && itemTotal >= offers.freeCoffeeFrom) {
-    coffee = await freeCoffee();
-    if (coffee) {
-      lines.push({ productId: coffee._id, name: coffee.name, category: coffee.category, price: coffee.price, qty: 1, isVeg: Boolean(coffee.isVeg), free: true, offer: 'first_order_coffee' });
-      discount += coffee.price;
-    }
-  }
-
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const total = Math.max(0, subtotal + deliveryFee - discount);
   const balance = customer ? await walletBalance(customer._id) : 0;
@@ -176,12 +166,10 @@ export async function quote({ items, couponCode, useWallet }, customer) {
     firstOrder,
     freeDelivery: { orders: alwaysFree ? null : config.freeDeliveryOrders, left: freeLeft, always: alwaysFree, applied: freeNow && itemTotal > 0 },
     deliveryNote,
-    freeCoffee: coffee ? { name: coffee.name, value: coffee.price } : null,
     storeItem: unlockAt > 0 ? { unlockAt, otherItemsTotal, moreNeeded: Math.max(0, unlockAt - otherItemsTotal), unlocked: otherItemsTotal >= unlockAt, inCart: storeQty, error: storeError } : null,
     deliveryCashback,
     offers: [
       freeNow && itemTotal > 0 && { key: 'free_delivery', text: deliveryNote },
-      coffee && { key: 'first_order_coffee', text: `Free ${coffee.name} on your first order` },
       deliveryCashback > 0 && { key: 'delivery_cashback', text: `${money(deliveryCashback)} cashback to your wallet after delivery` },
     ].filter(Boolean),
   };

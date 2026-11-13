@@ -1,7 +1,7 @@
 // "Order more, save more": a signup bonus for every new account and cashback on every delivered order
-// (both wallet coins), free delivery on a customer's first few orders, a free Cold Coffee on the first
-// order, and one ₹1 store item once the rest of the order is big enough. Amounts live in config.offers;
-// the bill side (delivery, Cold Coffee, ₹1 store) is worked out in ../pricing.js.
+// (both wallet coins), free delivery on a customer's first few orders, and one ₹1 store item once the rest
+// of the order is big enough. Amounts live in config.offers; the bill side (delivery, ₹1 store) is worked
+// out in ../pricing.js.
 //
 // Wallet coins are walletTxns of type "cashback" (with `source` saying why), the same as referral rewards,
 // so the admin panel's Wallet page lists them.
@@ -14,13 +14,6 @@ import { serialize } from './rules.js';
 // Products in the ₹1 store: the same rule as the website's menu tabs (frontend/src/lib/menuTabs.js).
 const STORE = /₹\s?1\b|\b1\s?item|rupee|rupay|\bstore\b/i;
 export const isStoreItem = (product, categoryLabel = '') => product.price <= 1 || STORE.test(`${product.category} ${categoryLabel}`);
-
-// The Cold Coffee given free on a first order: one called just "Cold Coffee" if there is one, else any
-// available dish with it in the name (not a combo).
-export async function freeCoffee() {
-  const available = (await store.find('products', { isAvailable: true })).filter(p => p.type !== 'combo' && p.price > 1);
-  return available.find(p => /^\s*cold\s+coffee\s*$/i.test(p.name)) || available.find(p => /\bcold\s+coffee\b/i.test(p.name)) || null;
-}
 
 // Each payment's wallet entry has an id worked out from what it's for, so it can't be paid twice: a
 // second insert with the same id fails in MongoDB and is skipped. Marking the account or order as paid

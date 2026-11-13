@@ -108,7 +108,7 @@
 .co-wallet.is-on .co-switch span { left: 23px; }
 .co-wallet input:focus-visible + .co-switch { outline: 2px solid var(--red); outline-offset: 2px; }
 
-/* Offers already on this order (free delivery, first-order coffee, cashback) */
+/* Offers already on this order (free delivery, cashback) */
 .co-perks { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
 .co-perks li { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: #2C6B23; }
 .co-perks svg { width: 16px; height: 16px; flex: none; fill: var(--green); stroke: none; }

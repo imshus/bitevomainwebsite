@@ -22,8 +22,7 @@ import { Alert, ChevronDown, ChevronRight, Search } from '../components/Icons';
 import { C, R, shadow } from '../theme';
 
 const BANNERS = [
-  { key: 'first', source: require('../assets/offer-first-order-800.webp'), alt: 'Ghar jaisa tasty khana: order online and save more. ₹20 signup bonus, no platform fee, free delivery in Sector 40, 44 and 45, one free item with every order, and a ₹1 item on orders of ₹399+.' },
-  { key: 'rewards', source: require('../assets/offer-rewards-800.webp'), alt: 'Fast food favourites: burgers, pizza, sandwiches, momos, spring rolls and more. ₹20 signup bonus, no platform fee, free delivery in Sector 40, 44 and 45, one free item with every order, and a ₹1 item on orders of ₹399+.' },
+  { key: 'rewards', source: require('../assets/offer-rewards-800.webp'), alt: 'Order more, save more: signup bonus, cashback on delivery, referral cashback, free delivery and a ₹1 store item on orders of ₹399+.' },
 ];
 
 function Banners() {
@@ -40,7 +39,7 @@ function Banners() {
           <Image key={b.key} source={b.source} accessibilityLabel={b.alt} style={{ width, height: width * 0.375, borderRadius: R.md }} resizeMode="cover" />
         ))}
       </ScrollView>
-      <View style={st.dots}>{BANNERS.map((b, i) => <View key={b.key} style={[st.dot, i === active && st.dotOn]} />)}</View>
+      {BANNERS.length > 1 && <View style={st.dots}>{BANNERS.map((b, i) => <View key={b.key} style={[st.dot, i === active && st.dotOn]} />)}</View>}
     </View>
   );
 }

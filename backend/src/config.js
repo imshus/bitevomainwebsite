@@ -85,7 +85,6 @@ export const config = {
   offers: {
     signupBonus: num(process.env.SIGNUP_BONUS, 20), // wallet coins for every new account
     deliveryCashback: num(process.env.DELIVERY_CASHBACK, 0), // wallet coins for every delivered order (0 = off: only the signup bonus)
-    freeCoffeeFrom: num(process.env.FREE_COFFEE_FROM, 99), // first order of at least this much gets a free Cold Coffee
     storeUnlockAt: num(process.env.STORE_UNLOCK_AT, 399), // other items needed before one ₹1 store item can be added
   },
   otpDevMode: process.env.OTP_DEV_MODE !== 'false',

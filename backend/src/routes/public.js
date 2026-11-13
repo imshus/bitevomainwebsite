@@ -28,8 +28,8 @@ router.get('/config', async (req, res) => {
     freeDeliveryOrders: config.deliveryFee > 0 ? config.freeDeliveryOrders : 0, // delivery is free on each customer's first orders (0 = always free, or never)
     freeDeliveryAbove: null, // dropped (kept so older pages don't break)
     minOrderValue: config.minOrderValue,
-    // "Order more, save more" (0 = off): signup bonus and per-order cashback (wallet coins), the order
-    // total that gets a first order its free Cold Coffee, and what unlocks one ₹1 store item.
+    // "Order more, save more" (0 = off): signup bonus and per-order cashback (wallet coins), and what unlocks
+    // one ₹1 store item.
     offers: config.offers,
     otpDevMode: config.otpDevMode,
     googleClientId: config.googleClientId || null, // shows "Continue with Google" when set

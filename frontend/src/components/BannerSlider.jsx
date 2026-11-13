@@ -7,17 +7,15 @@ import { prefersReducedMotion } from '../lib/motion.js';
 // pointer or keyboard focus is on it, and stays still for visitors who ask for reduced motion.
 // Images live in public/assets/banners: a 1600×600 JPG plus 800, 1200 and 1600 wide WebP copies. The first banner is
 // the biggest thing on the menu's first screen, so the page asks for it straight away (FIRST_BANNER in
-// vite.config.js) and ahead of other images; the rest wait until they're nearly in view.
+// vite.config.js) and ahead of other images; the rest wait until they're nearly in view. With one banner there
+// are no arrows or dots and nothing moves.
 const BANNERS = [
   {
-    file: 'offer-first-order',
-    alt: 'Ghar jaisa tasty khana: order online and save more. ₹20 signup bonus, no platform fee, free delivery in Sector 40, 44 and 45, one free item with every order, and a ₹1 item on orders of ₹399+.',
-  },
-  {
     file: 'offer-rewards',
-    alt: 'Fast food favourites: burgers, pizza, sandwiches, momos, spring rolls and more. ₹20 signup bonus, no platform fee, free delivery in Sector 40, 44 and 45, one free item with every order, and a ₹1 item on orders of ₹399+.',
+    alt: 'Order more, save more: ₹20 signup bonus, ₹20 cashback on delivery and ₹100 referral cashback in wallet coins, free delivery on every order and a ₹1 store item on orders of ₹399+.',
   },
 ];
+const MANY = BANNERS.length > 1;
 
 const INTERVAL = 5000;
 
@@ -41,7 +39,7 @@ export default function BannerSlider() {
 
   // Restarts after every change of banner, so a swipe gets a full interval before the next move.
   useEffect(() => {
-    if (hovered || focused || prefersReducedMotion()) return;
+    if (!MANY || hovered || focused || prefersReducedMotion()) return;
     const timer = setInterval(() => { if (!document.hidden) goTo(active + 1); }, INTERVAL);
     return () => clearInterval(timer);
   }, [active, hovered, focused]);
@@ -75,25 +73,31 @@ export default function BannerSlider() {
               </div>
             ))}
           </div>
-          <button type="button" className="banners__arrow banners__arrow--prev" onClick={() => goTo(active - 1)} aria-label="Previous offer">
-            <ChevronRight />
-          </button>
-          <button type="button" className="banners__arrow banners__arrow--next" onClick={() => goTo(active + 1)} aria-label="Next offer">
-            <ChevronRight />
-          </button>
+          {MANY && (
+            <>
+              <button type="button" className="banners__arrow banners__arrow--prev" onClick={() => goTo(active - 1)} aria-label="Previous offer">
+                <ChevronRight />
+              </button>
+              <button type="button" className="banners__arrow banners__arrow--next" onClick={() => goTo(active + 1)} aria-label="Next offer">
+                <ChevronRight />
+              </button>
+            </>
+          )}
         </div>
-        <div className="banners__dots">
-          {BANNERS.map((b, i) => (
-            <button
-              type="button"
-              key={b.file}
-              className={`banners__dot${i === active ? ' is-active' : ''}`}
-              onClick={() => goTo(i)}
-              aria-label={`Show offer ${i + 1}`}
-              aria-current={i === active || undefined}
-            />
-          ))}
-        </div>
+        {MANY && (
+          <div className="banners__dots">
+            {BANNERS.map((b, i) => (
+              <button
+                type="button"
+                key={b.file}
+                className={`banners__dot${i === active ? ' is-active' : ''}`}
+                onClick={() => goTo(i)}
+                aria-label={`Show offer ${i + 1}`}
+                aria-current={i === active || undefined}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
