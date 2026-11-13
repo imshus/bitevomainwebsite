@@ -24,6 +24,8 @@ What it does (first version):
   on the website (`src/screens/RefundScreens.js`): what went wrong, the amount, and where the money goes (BiteVo
   wallet, or back to UPI / card for orders paid online). The order page then shows the request: under review,
   approved (and where the money went) or not approved, with the kitchen's note from the admin panel.
+- Refunds (My account → Refunds): every refund request and payment without an order, and how refunds work. The
+  app never refunds anything itself: cancelling a paid order sends a refund request to the admin panel.
 - On a live order, as on the website: the delivery partner card (who's bringing it; picking up, at the
   kitchen or on the way) with the live arrival time ("Arriving in ~14 min, by 7:52 pm"), and the live map: the
   rider (blue, with a bike and the way they're heading), the rider app's kitchen and home pins, the road route

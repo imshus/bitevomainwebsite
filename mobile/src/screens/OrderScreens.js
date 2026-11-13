@@ -1,7 +1,7 @@
 // "My orders" and one order's page, which follows the order live (every 5 seconds) while it's on its way, with
 // the delivery partner's live status and, while the rider app shares where they are, the live map.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, AppState, Alert as Confirm, FlatList, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, AppState, Alert as Confirm, FlatList, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api';
 import { useAuth } from '../state/auth';
@@ -206,14 +206,21 @@ export function OrderDetailScreen({ route, navigation }) {
 
   const reached = STEPS.findIndex(s => s.status === order.status);
   const at = status => order.history?.find(h => h.status === status)?.at;
-  const cancel = () => Confirm.alert('Cancel this order?', 'You can cancel until the kitchen starts cooking.', [
+  // Nothing is refunded straight away: a refund request for what was paid goes to our team (Refunds screen).
+  const paid = order.paid?.total || 0;
+  const cancel = () => Confirm.alert('Cancel this order?', paid
+    ? `You can cancel until the kitchen starts cooking. Our team will check it and refund the ${money(paid)} you paid; you can follow it under Refunds.`
+    : 'You can cancel until the kitchen starts cooking.', [
     { text: 'Keep it', style: 'cancel' },
     {
       text: 'Cancel order', style: 'destructive', onPress: async () => {
         setCancelling(true);
-        try { setOrder(await api.cancelOrder(order._id)); } catch (err) { Confirm.alert('Couldn’t cancel', err.message); }
+        try {
+          setOrder(await api.cancelOrder(order._id));
+          if (paid) ToastAndroid.show('Order cancelled. Your refund is with our team for approval.', ToastAndroid.LONG);
+        } catch (err) { Confirm.alert('Couldn’t cancel', err.message); }
         setCancelling(false);
-        load(); // picks up whether a refund can still be asked for
+        load(); // picks up the refund request
       },
     },
   ]);
@@ -262,7 +269,7 @@ export function OrderDetailScreen({ route, navigation }) {
 
       <RiderCard order={order} />
 
-      {order.refundRequest && <RefundStatus request={order.refundRequest} paymentMethod={order.paymentMethod} />}
+      {order.refundRequest && <RefundStatus request={order.refundRequest} paymentMethod={order.paymentMethod} paid={order.paid} onAll={() => navigation.navigate('Refunds')} />}
 
       <Card style={{ gap: 8 }}>
         <Text style={st.cardTitle}>Your order</Text>

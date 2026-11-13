@@ -57,7 +57,7 @@ function WalletDetails() {
           )}
           <li>
             <span className="panel__icon"><WalletIcon /></span>
-            <span><b>Refunds</b><small>Money back for a cancelled order can come straight here.</small></span>
+            <span><b>Refunds</b><small>Refunds our team approves can come straight here. <Link to="/refunds">Your refunds</Link></small></span>
           </li>
         </ul>
       </div>

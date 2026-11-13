@@ -8,7 +8,7 @@ import { PageHero, Loading } from '../components/Sections.jsx';
 import SignInPrompt from '../components/SignInPrompt.jsx';
 import AddressForm from '../components/AddressForm.jsx';
 import Modal from '../components/Modal.jsx';
-import { MapPin, User, Wallet, Receipt, ChevronRight, Alert, Gift } from '../components/Icons.jsx';
+import { MapPin, User, Wallet, Receipt, ChevronRight, Alert, Gift, Shield } from '../components/Icons.jsx';
 import { useConfig } from '../state/menu.js';
 import { money, addressLine, LIVE_STATUSES } from '../lib/format.js';
 import usePageTitle from '../lib/usePageTitle.js';
@@ -215,6 +215,11 @@ export default function Account() {
                 <ChevronRight />
               </Link>
               <WalletLink />
+              <Link to="/refunds" className="panel panel--link">
+                <span className="panel__icon"><Shield /></span>
+                <span><b>Refunds</b><small>Refunds you’ve asked for and where they stand</small></span>
+                <ChevronRight />
+              </Link>
               {config?.referral && (
                 <Link to="/refer" className="panel panel--link panel--refer">
                   <span className="panel__icon"><Gift /></span>

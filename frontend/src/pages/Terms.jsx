@@ -74,9 +74,9 @@ export default function Terms() {
             <li>Items are missing, incorrect or damaged when delivered.</li>
             <li>There is a genuine quality issue with your food.</li>
           </ul>
-          <p>To request a refund, contact us with your order ID and, where possible, a photo of the issue. We review every request fairly. Depending on the case, we may offer a full or partial refund or a replacement.</p>
+          <p>To request a refund, open the order in My Orders and choose “Request a refund” (up to 3 days after delivery), or contact us with your order ID and, where possible, a photo of the issue. We review every request fairly, including refunds for orders you cancel. Depending on the case, we may offer a full or partial refund or a replacement. No refund is made until our team has approved it; you can follow your requests on the Refunds page of your account.</p>
           <h3>How refunds are paid</h3>
-          <p>Approved refunds are sent to your original payment method. The time it takes for the money to reach your account depends on your bank or payment provider.</p>
+          <p>Approved refunds are sent to your BiteVo wallet or to your original payment method. Refunds to your wallet arrive straight away; the time it takes for a refund to your original payment method to reach your account depends on your bank or payment provider.</p>
 
           <h2 id="allergies">8. Food safety &amp; allergies</h2>
           <p>Our dishes are prepared in kitchens that handle common allergens such as milk, nuts, gluten, soy, eggs and sesame. While we take care, we cannot guarantee that any dish is completely free from allergens. If you have a food allergy or special dietary need, please check the dish details and contact us before ordering. Food should be eaten soon after delivery.</p>

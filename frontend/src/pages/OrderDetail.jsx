@@ -198,13 +198,15 @@ export default function OrderDetail() {
     return () => clearInterval(t);
   }, [live, liveUp]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Nothing is refunded straight away: a refund request for what was paid goes to our team (Refunds page).
   const cancel = async () => {
-    if (!window.confirm('Cancel this order?')) return;
+    const paid = order.paid?.total || 0;
+    if (!window.confirm(paid ? `Cancel this order?\n\nOur team will check it and refund the ${money(paid)} you paid. You can follow it on your Refunds page.` : 'Cancel this order?')) return;
     setCancelling(true);
     try {
       setOrder(await api.cancelOrder(order._id));
-      toast('Your order has been cancelled.');
-      load(); // picks up whether a refund can still be asked for
+      toast(paid ? 'Your order has been cancelled. Your refund is with our team for approval.' : 'Your order has been cancelled.');
+      load(); // picks up the refund request
     } catch (err) {
       toast(err.message, 'error');
       load();
@@ -255,7 +257,7 @@ export default function OrderDetail() {
 
         <RiderCard order={order} />
 
-        {order.refundRequest && <RefundStatus request={order.refundRequest} paymentMethod={order.paymentMethod} />}
+        {order.refundRequest && <RefundStatus request={order.refundRequest} paymentMethod={order.paymentMethod} paid={order.paid} allLink />}
 
         {order.status === 'delivered' && <div className="panel"><Rating order={order} onRated={setOrder} /></div>}
 

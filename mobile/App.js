@@ -13,7 +13,7 @@ import PaymentScreen from './src/screens/PaymentScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import { AddressesScreen, AddressFormScreen } from './src/screens/AddressScreens';
 import { OrdersScreen, OrderDetailScreen } from './src/screens/OrderScreens';
-import { RefundRequestScreen } from './src/screens/RefundScreens';
+import { RefundRequestScreen, RefundsScreen } from './src/screens/RefundScreens';
 import { AccountScreen, WalletScreen } from './src/screens/AccountScreens';
 import { Home, Receipt, User, Wallet } from './src/components/Icons';
 import { C } from './src/theme';
@@ -64,6 +64,7 @@ export default function App() {
               <Stack.Screen name="AddressForm" component={AddressFormScreen} options={({ route }) => ({ title: route.params?.address ? 'Edit address' : 'Add address' })} />
               <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Your order' }} />
               <Stack.Screen name="RefundRequest" component={RefundRequestScreen} options={{ title: 'Request a refund' }} />
+              <Stack.Screen name="Refunds" component={RefundsScreen} options={{ title: 'Your refunds' }} />
             </Stack.Navigator>
           </NavigationContainer>
         </CartProvider>

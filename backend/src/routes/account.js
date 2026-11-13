@@ -12,6 +12,7 @@ import { serialize, normalizePhone, LIVE_STATUSES } from '../lib/rules.js';
 import { requireCustomer, publicCustomer, clearSessionCookie } from '../auth.js';
 import { walletBalance } from '../pricing.js';
 import { sendMail, welcomeEmail } from '../lib/mail.js';
+import { paidFor, publicRequest } from '../lib/refundRequests.js';
 
 export const router = Router();
 router.use(requireCustomer);
@@ -173,6 +174,36 @@ router.get('/wallet', async (req, res) => {
     balance: await walletBalance(req.customer._id),
     transactions: txns.map(t => ({ _id: t._id, type: t.type, label: SOURCE_LABELS[t.source] || TXN_LABELS[t.type] || 'Wallet', note: t.note, amount: t.amount, at: t.at })),
   });
+});
+
+// ---- Refunds ----------------------------------------------------------------------------
+// The Refunds page: every refund request (asked for on an order's page, or made when the customer cancelled a
+// paid order) and every online payment that didn't become an order, newest first, with where each stands.
+// Refunds are only ever made from the admin panel; this just shows them.
+router.get('/refunds', async (req, res) => {
+  const [requests, payments] = await Promise.all([
+    store.find('refundRequests', { customerId: req.customer._id }, { sort: { createdAt: -1 }, limit: 100 }),
+    store.find('payments', { customerId: req.customer._id, status: { $in: ['held', 'refunding', 'refunded'] } }, { sort: { createdAt: -1 }, limit: 50 }),
+  ]);
+  const orders = new Map();
+  for (const r of requests) {
+    if (!orders.has(r.orderId)) orders.set(r.orderId, await store.findById('orders', r.orderId));
+  }
+  const items = [
+    ...requests.map(r => {
+      const order = orders.get(r.orderId);
+      return { type: 'order', ...publicRequest(r), orderId: r.orderId, orderNo: r.orderNo, paymentMethod: order?.paymentMethod || null, paid: order ? paidFor(order) : null };
+    }),
+    // A payment taken without an order: refunded in full, to how it was paid or to the wallet, once an admin does
+    // it. (A note on one marked refunded elsewhere is for the team, so it isn't shown.)
+    ...payments.filter(p => !p.orderId).map(p => ({
+      type: 'payment', _id: p._id, kind: 'no_order', status: p.status === 'refunded' ? 'approved' : 'pending',
+      reason: 'Paid, but the order wasn’t placed', amount: p.amount, to: 'source', paymentMethod: p.method || 'Online',
+      createdAt: p.heldAt || p.createdAt, decidedAt: p.refundedAt || null, note: p.refundedElsewhere ? '' : p.refundNote || '',
+      decision: p.status === 'refunded' ? { amount: p.amount, to: p.refundTo === 'wallet' ? 'wallet' : 'source', wallet: p.refundTo === 'wallet' ? p.amount : 0 } : null,
+    })),
+  ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  res.json(items);
 });
 
 // ---- Delete account ---------------------------------------------------------------------

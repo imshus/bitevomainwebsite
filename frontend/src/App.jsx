@@ -19,6 +19,7 @@ const Orders = lazyLoad(() => import('./pages/Orders.jsx'));
 const OrderDetail = lazyLoad(() => import('./pages/OrderDetail.jsx'));
 const Account = lazyLoad(() => import('./pages/Account.jsx'));
 const Wallet = lazyLoad(() => import('./pages/Wallet.jsx'));
+const Refunds = lazyLoad(() => import('./pages/Refunds.jsx'));
 const Refer = lazyLoad(() => import('./pages/Refer.jsx'));
 const About = lazyLoad(() => import('./pages/About.jsx'));
 const Support = lazyLoad(() => import('./pages/Support.jsx'));
@@ -26,7 +27,7 @@ const Privacy = lazyLoad(() => import('./pages/Privacy.jsx'));
 const Terms = lazyLoad(() => import('./pages/Terms.jsx'));
 const DeliveryPartner = lazyLoad(() => import('./pages/DeliveryPartner.jsx'));
 
-const PAGES = { checkout: Checkout, orders: Orders, account: Account, wallet: Wallet, refer: Refer, about: About, support: Support, privacy: Privacy, terms: Terms, 'delivery-partner': DeliveryPartner };
+const PAGES = { checkout: Checkout, orders: Orders, account: Account, wallet: Wallet, refunds: Refunds, refer: Refer, about: About, support: Support, privacy: Privacy, terms: Terms, 'delivery-partner': DeliveryPartner };
 const pageFor = pathname => {
   const [first, second] = pathname.split('/').filter(Boolean);
   return first === 'orders' && second ? OrderDetail : PAGES[first];
@@ -101,6 +102,7 @@ export default function App() {
                 <Route path="/orders/:id" element={<OrderDetail />} />
                 <Route path="/account" element={<Account />} />
                 <Route path="/wallet" element={<Wallet />} />
+                <Route path="/refunds" element={<Refunds />} />
                 <Route path="/refer" element={<Refer />} />
                 <Route path="/r/:code" element={<InviteRoute />} />
                 <Route path="/about" element={<About />} />

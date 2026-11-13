@@ -1,11 +1,15 @@
-// "Request a refund", as on the website's order page (frontend/src/components/RefundRequest.jsx): the customer
-// says what went wrong and where the money should go (BiteVo wallet, or back to UPI / card for orders paid
-// online). The kitchen approves or rejects it in the admin panel; RefundStatus shows where it stands.
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from 'react-native';
+// Refunds, as on the website (frontend/src/components/RefundRequest.jsx and pages/Refunds.jsx): "Request a
+// refund" (the customer says what went wrong and where the money should go: BiteVo wallet, or back to UPI / card
+// for orders paid online), the Refunds screen with every refund and where it stands, and RefundStatus, the card
+// for one. Only BiteVo's team makes refunds, in the admin panel; nothing is refunded by the app or the website,
+// not even for a cancelled order (a request is made for the customer).
+import { useCallback, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../api';
 import { formatWhen, money } from '../lib/format';
-import { Button, Card, Pill } from '../components/ui';
+import { Button, Card, LoadError, Loading, Pill } from '../components/ui';
+import { Receipt, Shield, Wallet } from '../components/Icons';
 import { C, R } from '../theme';
 
 const REASONS = [
@@ -24,20 +28,36 @@ const TONE = {
   no: { pill: 'grey', label: 'Not approved', edge: C.faint },
 };
 
-// The order page's card for a refund request: under review, approved (and where the money went) or not approved,
-// with the kitchen's note.
-export function RefundStatus({ request, paymentMethod }) {
+// While it's under review, by kind: a cancelled paid order, a payment without an order, or a request the
+// customer made. `paid` ({ online, wallet, … }) splits a cancelled order's refund back to UPI / card and wallet.
+function waiting(request, paymentMethod, paid) {
+  const to = where(request.to, paymentMethod);
+  if (request.kind === 'cancelled') {
+    const split = request.to === 'source' && paid?.wallet > 0 && paid.online > 0
+      ? `: ${money(paid.online)} to ${to} and ${money(paid.wallet)} to your BiteVo wallet` : ` to ${to}`;
+    return `You cancelled this order, so we’ve asked our team to refund the ${money(request.amount)} you paid${split}. We’ll email you once it’s decided.`;
+  }
+  if (request.kind === 'no_order') return `The order wasn’t placed, so our team will refund the ${money(request.amount)} you paid to ${to}.`;
+  return `We’re looking into it: ${String(request.reason || '').toLowerCase()}. You asked for ${money(request.amount)} to ${to}. We’ll email you once it’s decided.`;
+}
+
+const SINCE = { cancelled: 'Cancelled', no_order: 'Paid' };
+
+// The card for one refund: under review, approved (and where the money went) or not approved, with the note from
+// BiteVo. On the order page it's "Refund request" (with `onAll`: a link to the Refunds screen); on the Refunds
+// screen, `title` names the order and `onOpen` opens it.
+export function RefundStatus({ request, paymentMethod, paid, title = 'Refund request', onOpen, onAll }) {
   const tone = request.status === 'approved' ? 'ok' : request.status === 'rejected' ? 'no' : 'wait';
   const d = request.decision;
   return (
     <Card style={[st.status, { borderLeftColor: TONE[tone].edge }]}>
       <View style={st.statusHead} accessibilityLiveRegion="polite">
-        <Text style={st.statusTitle}>Refund request</Text>
+        {onOpen ? (
+          <Pressable onPress={onOpen} accessibilityRole="link" hitSlop={8}><Text style={[st.statusTitle, st.titleLink]}>{title} ›</Text></Pressable>
+        ) : <Text style={st.statusTitle}>{title}</Text>}
         <Pill tone={TONE[tone].pill}>{TONE[tone].label}</Pill>
       </View>
-      {tone === 'wait' && (
-        <Text style={st.statusText}>We’re looking into it: {String(request.reason || '').toLowerCase()}. You asked for {money(request.amount)} to {where(request.to, paymentMethod)}. We’ll email you once it’s decided.</Text>
-      )}
+      {tone === 'wait' && <Text style={st.statusText}>{waiting(request, paymentMethod, paid)}</Text>}
       {tone === 'ok' && d && (
         <Text style={st.statusText}>
           {money(d.amount)} refunded{d.to === 'source' && d.wallet > 0
@@ -47,8 +67,68 @@ export function RefundStatus({ request, paymentMethod }) {
       )}
       {tone === 'no' && <Text style={st.statusText}>We couldn’t approve this refund.</Text>}
       {request.note ? <Text style={[st.statusText, st.note]}><Text style={st.bold}>From BiteVo:</Text> {request.note}</Text> : null}
-      <Text style={st.small}>Asked {formatWhen(request.createdAt)}{request.decidedAt ? ` · decided ${formatWhen(request.decidedAt)}` : ''}</Text>
+      <Text style={st.small}>{SINCE[request.kind] || 'Asked'} {formatWhen(request.createdAt)}{request.decidedAt ? ` · decided ${formatWhen(request.decidedAt)}` : ''}</Text>
+      {onAll && <Pressable onPress={onAll} accessibilityRole="link" hitSlop={8}><Text style={st.allLink}>All your refunds ›</Text></Pressable>}
     </Card>
+  );
+}
+
+const HOW = [
+  { Icon: Receipt, title: 'Ask from the order', text: 'Open a delivered order (up to 3 days after delivery) in My orders and tap “Request a refund”. If you cancel a paid order, we ask for you.' },
+  { Icon: Shield, title: 'Our team checks every request', text: 'Nothing is refunded automatically. We approve or decline each request, tell you why if we can’t approve it, and email you the outcome.' },
+  { Icon: Wallet, title: 'Where the money goes', text: 'To your BiteVo wallet straight away once approved, or back to your UPI / card for orders paid online (5–7 working days). Anything paid from your wallet or in cash comes back to the wallet.' },
+];
+
+// The Refunds screen (from My account): every refund request (asked for, or made when a paid order was
+// cancelled) and every payment that didn't become an order, newest first, then how refunds work.
+export function RefundsScreen({ navigation }) {
+  const [items, setItems] = useState(null);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const load = useCallback(() => api.refunds().then(list => { setItems(list); setError(null); }, setError), []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  if (!items) return error ? <LoadError error={error} onRetry={load} /> : <Loading label="Loading your refunds…" />;
+  const open = items.filter(i => i.status === 'pending');
+  return (
+    <FlatList
+      style={{ backgroundColor: C.bg }}
+      contentContainerStyle={st.page}
+      data={items}
+      keyExtractor={i => `${i.type}-${i._id}`}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load().finally(() => setRefreshing(false)); }} colors={[C.red]} />}
+      ListHeaderComponent={items.length ? (
+        <Text style={st.lead}>{open.length ? `${open.length} under review (${money(open.reduce((s, i) => s + (i.amount || 0), 0))}) · ` : ''}{items.length} in all</Text>
+      ) : (
+        <Card style={st.group}>
+          <Text style={st.statusTitle}>No refunds yet</Text>
+          <Text style={st.statusText}>If something was wrong with an order, open it in My orders and tap “Request a refund”.</Text>
+        </Card>
+      )}
+      renderItem={({ item: i }) => (
+        <RefundStatus
+          request={i}
+          paymentMethod={i.paymentMethod}
+          paid={i.paid}
+          title={i.type === 'payment' ? 'Payment without an order' : `Order #${i.orderNo}`}
+          onOpen={i.type === 'order' ? () => navigation.navigate('OrderDetail', { id: i.orderId }) : undefined}
+        />
+      )}
+      ListFooterComponent={(
+        <Card style={st.how}>
+          <Text style={st.statusTitle}>How refunds work</Text>
+          {HOW.map(({ Icon, title, text }) => (
+            <View key={title} style={st.howRow}>
+              <View style={st.howIcon}><Icon size={18} color={C.red} /></View>
+              <View style={st.optBody}>
+                <Text style={st.optTitle}>{title}</Text>
+                <Text style={st.optSub}>{text}</Text>
+              </View>
+            </View>
+          ))}
+        </Card>
+      )}
+    />
   );
 }
 
@@ -154,6 +234,11 @@ const st = StyleSheet.create({
   status: { gap: 6, borderLeftWidth: 4 },
   statusHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   statusTitle: { fontSize: 16, fontWeight: '800', color: C.ink },
+  titleLink: { color: C.red },
+  allLink: { color: C.red, fontWeight: '700', fontSize: 13.5, marginTop: 2 },
+  how: { gap: 12, marginTop: 4 },
+  howRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  howIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.redSoft, alignItems: 'center', justifyContent: 'center' },
   statusText: { fontSize: 14.5, color: '#444', lineHeight: 20 },
   note: { backgroundColor: '#FAF7F7', borderRadius: R.sm, paddingVertical: 8, paddingHorizontal: 10, overflow: 'hidden' },
   bold: { fontWeight: '700', color: C.ink },
