@@ -13,7 +13,7 @@ import { requireCustomer, optionalCustomer } from '../auth.js';
 import { quote, hasOrdered } from '../pricing.js';
 import { settleOffers } from '../lib/offers.js';
 import { config } from '../config.js';
-import { razorpayEnabled, createRazorpayOrder, signatureValid, confirmPayment, methodLabel, holdPayment, onUnclaimedPayment } from '../lib/razorpay.js';
+import { razorpayEnabled, createRazorpayOrder, signatureValid, confirmPayment, paymentFor, methodLabel, holdPayment, onUnclaimedPayment } from '../lib/razorpay.js';
 import { invoiceHtml, invoiceHeaders, invoicePath } from '../lib/invoice.js';
 import { REASONS, cantRequest, cancelRequest, paidFor, publicRequest } from '../lib/refundRequests.js';
 
@@ -192,6 +192,18 @@ async function checkOrder(body, customer) {
   return { bill, phone, address };
 }
 
+function orderRequest(body) {
+  return {
+    items: Array.isArray(body.items) ? body.items : [],
+    addressId: String(body.addressId || ''),
+    couponCode: String(body.couponCode || ''),
+    useWallet: Boolean(body.useWallet),
+    expectedTotal: Number(body.expectedTotal),
+    note: text(body.note, 200),
+    deliveryPhone: body.deliveryPhone,
+  };
+}
+
 // Writes the order and its wallet payment. `online` is the confirmed Razorpay payment for an order paid online.
 async function insertOrder(customer, body, { bill, phone, address }, online) {
   const now = new Date();
@@ -310,8 +322,16 @@ async function completePayment(record, { apiBase } = {}) {
   if (!paid) return { paid: false };
   const payment = await confirmPayment(paid.id, record); // checks the amount, captures it if only authorised
   const refund = async reason => {
-    await refundUnused(record, payment.id, reason).catch(e => console.error(`Refund of ${payment.id} failed, will retry: ${e.message}`));
-    return { refunded: true, message: `${reason}. The ${money(record.amount)} you paid is being refunded to your ${methodLabel(payment)} (3–5 working days).` };
+    const held = await holdPayment(record, payment, reason).catch(e => {
+      console.error(`Couldn’t record payment ${payment.id} for a refund: ${e.message}`);
+      return false;
+    });
+    return {
+      refunded: true,
+      message: held
+        ? `${reason}. Your payment is with our team for a refund to your ${methodLabel(payment)}.`
+        : `${reason}. Please contact support about the ${money(record.amount)} payment (${payment.id}).`,
+    };
   };
   const customer = await store.findById('customers', record.customerId);
   if (!customer || !record.request?.items?.length) return refund('The order wasn’t placed after the payment');
