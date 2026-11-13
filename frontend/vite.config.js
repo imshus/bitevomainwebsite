@@ -7,8 +7,8 @@ const allowedHosts = ['bitevo.in', 'www.bitevo.in'];
 
 // The first offer banner is the biggest thing on the menu's first screen (see BannerSlider.jsx).
 const FIRST_BANNER = {
-  href: '/assets/banners/offer-first-order-800.webp',
-  srcset: '/assets/banners/offer-first-order-800.webp 800w, /assets/banners/offer-first-order-1200.webp 1200w, /assets/banners/offer-first-order-1600.webp 1600w',
+  href: '/assets/banners/offer-rewards-800.webp',
+  srcset: '/assets/banners/offer-rewards-800.webp 800w, /assets/banners/offer-rewards-1200.webp 1200w, /assets/banners/offer-rewards-1600.webp 1600w',
   sizes: '(max-width: 1172px) calc(100vw - 32px), 1140px',
 };
 
