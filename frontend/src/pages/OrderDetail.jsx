@@ -133,26 +133,84 @@ function Tracker({ order }) {
   );
 }
 
+// Quick tags: the ones that fit the stars come first (same list as RATING_TAGS on the server).
+const GOOD_TAGS = ['Tasty food', 'Hot and fresh', 'Good portion', 'Fast delivery', 'Polite rider', 'Neat packing'];
+const BAD_TAGS = ['Food was cold', 'Too spicy', 'Too oily', 'Small portion', 'Late delivery', 'Missing item', 'Spilled or damaged'];
+const STAR_WORDS = ['', 'Bad', 'Not great', 'Okay', 'Good', 'Loved it!'];
+
+// Rating and feedback for a delivered order: tap the stars (saved straight away), then optionally pick
+// tags and write a comment and send them. Shows what was sent, with an Edit link.
 function Rating({ order, onRated }) {
-  const [hover, setHover] = useState(0);
   const toast = useToast();
+  const [hover, setHover] = useState(0);
+  const [stars, setStars] = useState(order.rating || 0);
+  const [tags, setTags] = useState(order.ratingTags || []);
+  const [text, setText] = useState(order.feedback || '');
+  const [editing, setEditing] = useState(!order.rating);
+  const [busy, setBusy] = useState(false);
+
   const rate = async n => {
+    setStars(n);
+    setEditing(true);
     try {
       onRated(await api.rateOrder(order._id, n));
-      toast('Thanks for rating your order!');
     } catch (err) { toast(err.message, 'error'); }
   };
-  const shown = hover || order.rating || 0;
+  const send = async e => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      onRated(await api.rateOrder(order._id, stars, { tags, feedback: text }));
+      setEditing(false);
+      toast('Thanks for your feedback! It helps our kitchen get better.');
+    } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+  };
+  const toggle = t => setTags(list => (list.includes(t) ? list.filter(x => x !== t) : [...list, t]));
+
+  const shown = hover || stars;
+  const options = stars >= 4 ? [...GOOD_TAGS, ...BAD_TAGS] : stars ? [...BAD_TAGS, ...GOOD_TAGS] : [];
   return (
-    <div className="rating">
-      <b>{order.rating ? 'Your rating' : 'How was your food?'}</b>
-      <div className="rating__stars" onMouseLeave={() => setHover(0)}>
-        {[1, 2, 3, 4, 5].map(n => (
-          <button key={n} type="button" className={n <= shown ? 'is-on' : ''} onMouseEnter={() => setHover(n)} onClick={() => rate(n)} aria-label={`${n} star${n > 1 ? 's' : ''}`}>
-            <Star />
-          </button>
-        ))}
+    <div className="rating-box">
+      <div className="rating">
+        <div>
+          <b>{order.rating ? 'Your rating' : 'How was your order?'}</b>
+          {shown > 0 && <span className="rating__word">{STAR_WORDS[shown]}</span>}
+        </div>
+        <div className="rating__stars" onMouseLeave={() => setHover(0)}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <button key={n} type="button" className={n <= shown ? 'is-on' : ''} onMouseEnter={() => setHover(n)} onClick={() => rate(n)} aria-label={`${n} star${n > 1 ? 's' : ''}`}>
+              <Star />
+            </button>
+          ))}
+        </div>
       </div>
+
+      {stars > 0 && editing && (
+        <form className="rating-form" onSubmit={send}>
+          <p className="rating-form__q">{stars >= 4 ? 'What did you like?' : 'What went wrong?'} <i>(optional)</i></p>
+          <div className="rating-tags">
+            {options.map(t => (
+              <button key={t} type="button" className={`chip-btn${tags.includes(t) ? ' is-active' : ''}`} aria-pressed={tags.includes(t)} onClick={() => toggle(t)}>{t}</button>
+            ))}
+          </div>
+          <label className="field">
+            <span>Tell us more <i>(optional)</i></span>
+            <textarea rows={3} maxLength={500} value={text} onChange={e => setText(e.target.value)} placeholder={stars >= 4 ? 'Anything you loved about the food or delivery?' : 'What should we do better next time?'} />
+          </label>
+          <button className="btn btn--red btn--block" disabled={busy}>{busy ? 'Sending…' : 'Send feedback'}</button>
+        </form>
+      )}
+
+      {stars > 0 && !editing && (order.ratingTags?.length > 0 || order.feedback) && (
+        <div className="rating-sent">
+          {order.ratingTags?.length > 0 && <p className="rating-tags">{order.ratingTags.map(t => <span key={t} className="chip-btn is-active">{t}</span>)}</p>}
+          {order.feedback && <p className="rating-sent__text">“{order.feedback}”</p>}
+          <button type="button" className="link" onClick={() => setEditing(true)}>Edit feedback</button>
+        </div>
+      )}
+      {stars > 0 && !editing && !(order.ratingTags?.length > 0 || order.feedback) && (
+        <button type="button" className="link" onClick={() => setEditing(true)}>Add a comment</button>
+      )}
     </div>
   );
 }

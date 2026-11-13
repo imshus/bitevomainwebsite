@@ -115,5 +115,6 @@ export const api = {
   cancelOrder: id => post(`/orders/${id}/cancel`),
   requestRefund: (id, body) => post(`/orders/${id}/refund-request`, body),
   refunds: () => get('/me/refunds'), // the Refunds page: refund requests and payments without an order
-  rateOrder: (id, rating) => post(`/orders/${id}/rating`, { rating }),
+  // { rating } alone, or with { tags, feedback } from the rating form.
+  rateOrder: (id, rating, extra = {}) => post(`/orders/${id}/rating`, { rating, ...extra }),
 };

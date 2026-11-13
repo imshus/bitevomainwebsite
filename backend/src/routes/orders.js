@@ -100,6 +100,8 @@ const publicOrder = (o, agent = null) => ({
   cancelReason: o.cancelReason || null,
   refund: o.refund || null,
   rating: o.rating ?? null,
+  ratingTags: o.ratingTags || [],
+  feedback: o.feedback || '',
   history: (o.history || []).map(h => ({ status: h.status, at: h.at })),
 });
 
@@ -421,10 +423,21 @@ router.post('/:id/cancel', async (req, res) => {
   res.json(publicOrder(saved));
 });
 
+// The customer's rating of a delivered order: 1–5 stars, optional quick tags (from RATING_TAGS) and an
+// optional written comment. Saved on the order (rating, ratingTags, feedback, ratedAt) for the admin panel.
+// Rating again replaces the earlier one; sending only `rating` keeps any tags and comment already given.
+export const RATING_TAGS = [
+  'Tasty food', 'Hot and fresh', 'Good portion', 'Fast delivery', 'Polite rider', 'Neat packing',
+  'Food was cold', 'Too spicy', 'Too oily', 'Small portion', 'Late delivery', 'Missing item', 'Spilled or damaged',
+];
+
 router.post('/:id/rating', async (req, res) => {
   const order = await ownOrder(req);
   if (order.status !== 'delivered') throw badRequest('You can rate an order once it has been delivered.');
   const rating = Math.round(Number(req.body?.rating));
   if (!(rating >= 1 && rating <= 5)) throw badRequest('Pick 1 to 5 stars.');
-  res.json(publicOrder(await store.update('orders', order._id, { rating, ratedAt: nowIso() })));
+  const changes = { rating, ratedAt: nowIso() };
+  if (Array.isArray(req.body?.tags)) changes.ratingTags = [...new Set(req.body.tags.filter(t => RATING_TAGS.includes(t)))];
+  if ('feedback' in (req.body || {})) changes.feedback = typeof req.body.feedback === 'string' ? req.body.feedback.trim().slice(0, 500) : '';
+  res.json(publicOrder(await store.update('orders', order._id, changes)));
 });

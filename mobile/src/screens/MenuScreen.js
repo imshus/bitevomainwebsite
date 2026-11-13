@@ -22,8 +22,8 @@ import { Alert, ChevronDown, ChevronRight, Search } from '../components/Icons';
 import { C, R, shadow } from '../theme';
 
 const BANNERS = [
-  { key: 'first', source: require('../assets/offer-first-order-800.webp'), alt: 'First order? Free cold coffee on orders above ₹99, plus free delivery.' },
-  { key: 'rewards', source: require('../assets/offer-rewards-800.webp'), alt: 'Order more, save more: signup bonus, cashback on delivery, referral cashback and more.' },
+  { key: 'first', source: require('../assets/offer-first-order-800.webp'), alt: 'Ghar jaisa tasty khana: order online and save more. ₹20 signup bonus, no platform fee, free delivery in Sector 40, 44 and 45, one free item with every order, and a ₹1 item on orders of ₹399+.' },
+  { key: 'rewards', source: require('../assets/offer-rewards-800.webp'), alt: 'Fast food favourites: burgers, pizza, sandwiches, momos, spring rolls and more. ₹20 signup bonus, no platform fee, free delivery in Sector 40, 44 and 45, one free item with every order, and a ₹1 item on orders of ₹399+.' },
 ];
 
 function Banners() {

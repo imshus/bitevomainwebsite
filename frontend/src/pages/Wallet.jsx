@@ -33,13 +33,15 @@ function WalletDetails() {
       <div className="panel">
         <div className="panel__head"><span className="panel__icon"><WalletIcon /></span><h2>Ways to fill your wallet</h2></div>
         <ul className="earn-list">
-          <li>
-            <span className="panel__icon"><Receipt /></span>
-            <span>
-              <b>{config?.offers?.deliveryCashback > 0 ? `${money(config.offers.deliveryCashback)} cashback on every order` : 'Cashback on your orders'}</b>
-              <small>Lands in your wallet once the order is delivered, on top of any coupon cashback.</small>
-            </span>
-          </li>
+          {config?.offers?.deliveryCashback > 0 && (
+            <li>
+              <span className="panel__icon"><Receipt /></span>
+              <span>
+                <b>{money(config.offers.deliveryCashback)} cashback on every order</b>
+                <small>Lands in your wallet once the order is delivered, on top of any coupon cashback.</small>
+              </span>
+            </li>
+          )}
           {config?.offers?.signupBonus > 0 && (
             <li>
               <span className="panel__icon"><Gift /></span>

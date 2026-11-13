@@ -461,6 +461,15 @@ button.btn { font-family: inherit; cursor: pointer; }
 .rating__stars svg { width: 30px; height: 30px; stroke: #D9C2C2; stroke-width: 1.5; fill: none; transition: fill .15s, stroke .15s, transform .15s; }
 .rating__stars button.is-on svg { fill: #F5A623; stroke: #F5A623; }
 .rating__stars button:hover svg { transform: scale(1.12); }
+.rating__word { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; color: #B7791F; }
+.rating-box > .link { margin-top: 10px; }
+.rating-form { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.rating-form__q { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+.rating-form__q i, .rating-form .field i { font-style: normal; font-weight: 400; color: var(--muted); }
+.rating-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.rating-tags .chip-btn { font-size: 13px; padding: 6px 12px; }
+.rating-sent { margin-top: 12px; }
+.rating-sent__text { margin: 0 0 8px; color: var(--muted); font-style: italic; }
 
 .order-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; }
 .order-grid .panel { margin: 0; }

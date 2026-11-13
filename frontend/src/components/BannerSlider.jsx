@@ -11,11 +11,11 @@ import { prefersReducedMotion } from '../lib/motion.js';
 const BANNERS = [
   {
     file: 'offer-first-order',
-    alt: 'First order? Get a free cold coffee on orders above ₹99, plus free delivery.',
+    alt: 'Ghar jaisa tasty khana: order online and save more. ₹20 signup bonus, no platform fee, free delivery in Sector 40, 44 and 45, one free item with every order, and a ₹1 item on orders of ₹399+.',
   },
   {
     file: 'offer-rewards',
-    alt: 'Order more, save more: ₹20 signup bonus, ₹20 cashback on delivery and ₹100 referral cashback in wallet coins, free delivery on every order, a free cold coffee on orders of ₹99+ and a ₹1 store item on orders of ₹399+.',
+    alt: 'Fast food favourites: burgers, pizza, sandwiches, momos, spring rolls and more. ₹20 signup bonus, no platform fee, free delivery in Sector 40, 44 and 45, one free item with every order, and a ₹1 item on orders of ₹399+.',
   },
 ];
 
