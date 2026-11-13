@@ -111,5 +111,6 @@ export const api = {
   orders: () => get('/orders'),
   order: id => get(`/orders/${id}`),
   cancelOrder: id => post(`/orders/${id}/cancel`),
+  requestRefund: (id, body) => post(`/orders/${id}/refund-request`, body),
   rateOrder: (id, rating) => post(`/orders/${id}/rating`, { rating }),
 };

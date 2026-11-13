@@ -51,6 +51,8 @@ const del = path => request('DELETE', path);
 
 export const api = {
   config: () => get('/config'),
+  // The address at a location (the phone's GPS): area, city, pincode… and whether we deliver there.
+  reverse: (lat, lng) => get(`/places/reverse?lat=${lat}&lng=${lng}`, { quiet401: true }),
   menu: () => get('/menu'),
   offers: () => get('/offers', { quiet401: true }),
 

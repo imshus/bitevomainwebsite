@@ -1,4 +1,5 @@
-// The menu, the app's home: a red header with where we're delivering (or "Service unavailable"), search and
+// The menu, the app's home: a red header with where we're delivering (the chosen saved address, or the phone's
+// live location, found when the app opens; or "Service unavailable"), search and
 // a veg switch, the offer banners, the five tabs, then the dishes. "All" shows each section as a sideways
 // row; a tab shows its dishes two per row.
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -7,7 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMenu, useConfig } from '../state/data';
 import { useCart } from '../state/cart';
 import { useAuth } from '../state/auth';
-import { useChosenAddress } from '../state/address';
+import { useChosenAddress, hasChoice } from '../state/address';
+import { useHere, locateHere, getHere } from '../state/here';
+import { distanceKm } from '../lib/location';
 import { TABS, FEED_ORDER, tabOf, matches, availableFirst } from '../lib/menuTabs';
 import { deliversTo, whereWeDeliver } from '../lib/deliveryArea';
 import { addressLine } from '../lib/format';
@@ -66,12 +69,26 @@ export default function MenuScreen({ navigation }) {
   const { data: menu, error, loading, reload } = useMenu();
   const { data: config } = useConfig();
   const { customer } = useAuth();
-  const [address] = useChosenAddress();
+  const [address, chooseAddress] = useChosenAddress();
+  const here = useHere();
   const cart = useCart();
   const [tab, setTab] = useState('all');
   const [query, setQuery] = useState('');
   const [vegOnly, setVegOnly] = useState(false);
   const list = useRef(null);
+
+  // Where the phone is: looked up when the app opens (location access is asked for the first time).
+  useEffect(() => { if (getHere().status === 'idle') locateHere(); }, []);
+  // With saved addresses, deliver to the one where the customer is now (within 300 m), unless they picked one
+  // themselves and it's still near them.
+  const saved = customer?.addresses || [];
+  useEffect(() => {
+    if (here.status !== 'ok' || !saved.length) return;
+    const near = saved.filter(a => a.lat != null).map(a => ({ a, km: distanceKm(here, a) })).sort((x, y) => x.km - y.km)[0];
+    if (!near || near.km > 0.3 || near.a._id === address?._id) return;
+    const chosenFar = address?.lat != null ? distanceKm(here, address) > 1 : true;
+    if (!hasChoice() || chosenFar) chooseAddress(near.a._id);
+  }, [here.status, here.lat, here.lng, saved.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the cart's names and prices in step with the menu.
   useEffect(() => { if (menu) cart.syncWithMenu(menu.products); }, [menu]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -94,7 +111,8 @@ export default function MenuScreen({ navigation }) {
   for (let i = 0; i < gridItems.length; i += 2) rows.push(gridItems.slice(i, i + 2));
 
   const choose = key => { setTab(key); list.current?.scrollToOffset({ offset: 0, animated: false }); };
-  const served = !address || deliversTo(address, config);
+  // A saved address, or (none yet) the live location's own check.
+  const served = address ? deliversTo(address, config) : here.place?.check?.deliverable !== false;
   const pickAddress = () => navigation.navigate(customer?.name ? 'Addresses' : 'SignIn');
 
   const header = (
@@ -135,6 +153,16 @@ export default function MenuScreen({ navigation }) {
           <Pressable onPress={pickAddress} style={{ flex: 1 }} accessibilityLabel="Change delivery address">
             {address ? (
               <Text style={st.where} numberOfLines={2}><Text style={st.whereTag}>{address.label.toUpperCase()} - </Text>{addressLine(address)}</Text>
+            ) : here.status === 'ok' && here.place ? (
+              <>
+                <View style={st.whereRow}><Text style={st.whereTag}>CURRENT LOCATION</Text><ChevronDown size={16} color={C.white} /></View>
+                <Text style={st.whereHint} numberOfLines={1}>{here.place.line2 || here.place.formatted}</Text>
+              </>
+            ) : here.status === 'locating' ? (
+              <>
+                <View style={st.whereRow}><Text style={st.whereTag}>FINDING YOUR LOCATION…</Text></View>
+                <Text style={st.whereHint}>{customer ? 'Or add your delivery address' : 'Or sign in to choose where we deliver'}</Text>
+              </>
             ) : (
               <>
                 <View style={st.whereRow}><Text style={st.whereTag}>SELECT LOCATION</Text><ChevronDown size={16} color={C.white} /></View>

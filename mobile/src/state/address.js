@@ -16,6 +16,9 @@ export function chooseAddress(id) {
   listeners.forEach(fn => fn());
 }
 
+// Whether the customer picked an address themselves (else the menu may pick the saved one nearest to them).
+export const hasChoice = () => Boolean(currentId);
+
 // The chosen saved address, else the first one. Null when signed out or with no addresses yet.
 export function useChosenAddress() {
   const { customer } = useAuth();

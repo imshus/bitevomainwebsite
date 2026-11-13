@@ -14,6 +14,7 @@ import { useLiveOrders } from '../lib/live.js';
 import { useLiveTrip } from '../lib/eta.js';
 import { useConfig } from '../state/menu.js';
 import { lazyLoad, LazyPart } from '../lib/lazy.js';
+import { RefundRequestForm, RefundStatus } from '../components/RefundRequest.jsx';
 
 // The live map (Leaflet + OpenStreetMap) is its own file, fetched only for an order that's on its way.
 const RiderMap = lazyLoad(() => import('../components/RiderMap.jsx'));
@@ -104,7 +105,7 @@ function RiderCard({ order }) {
       {/* The live map, while the rider app is sending the rider's position: to the kitchen, then to you. */}
       {showMap && (
         <LazyPart>
-          <RiderMap rider={r.position} home={trip.home} kitchen={trip.kitchen} leg={r.leg} route={trip.route} eta={trip.eta} distanceKm={r.distanceKm} />
+          <RiderMap rider={r.position} home={trip.home} homeApprox={Boolean(order.address?.approx)} kitchen={trip.kitchen} leg={r.leg} route={trip.route} eta={trip.eta} distanceKm={r.distanceKm} />
         </LazyPart>
       )}
     </div>
@@ -165,6 +166,7 @@ export default function OrderDetail() {
   const [order, setOrder] = useState(null);
   const [error, setError] = useState(null);
   const [cancelling, setCancelling] = useState(false);
+  const [askingRefund, setAskingRefund] = useState(false);
   usePageTitle(order ? `Order #${order.orderNo}` : 'Your order');
 
   // When the kitchen moves the order along, say so (the page refreshes itself while it's live).
@@ -202,6 +204,7 @@ export default function OrderDetail() {
     try {
       setOrder(await api.cancelOrder(order._id));
       toast('Your order has been cancelled.');
+      load(); // picks up whether a refund can still be asked for
     } catch (err) {
       toast(err.message, 'error');
       load();
@@ -252,6 +255,8 @@ export default function OrderDetail() {
 
         <RiderCard order={order} />
 
+        {order.refundRequest && <RefundStatus request={order.refundRequest} paymentMethod={order.paymentMethod} />}
+
         {order.status === 'delivered' && <div className="panel"><Rating order={order} onRated={setOrder} /></div>}
 
         <div className="order-grid">
@@ -296,11 +301,16 @@ export default function OrderDetail() {
               )}
               {!live && <button type="button" className="btn btn--red" onClick={() => reorder(order)}>Order again</button>}
               <a href={invoiceUrl(order._id)} target="_blank" rel="noreferrer" className="btn btn--outline">Invoice</a>
+              {order.canRequestRefund && <button type="button" className="btn btn--outline" onClick={() => setAskingRefund(true)}>Request a refund</button>}
               <Link to={`/support?order=${encodeURIComponent(order.orderNo)}`} className="btn btn--outline">Get help</Link>
             </div>
           </div>
         </div>
       </div>
+      {askingRefund && (
+        <RefundRequestForm order={order} onClose={() => setAskingRefund(false)}
+          onSent={() => { setAskingRefund(false); toast('Refund request sent. We’ll email you once it’s reviewed.'); load(); }} />
+      )}
     </section>
   );
 }

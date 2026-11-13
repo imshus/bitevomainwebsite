@@ -4,14 +4,16 @@
 //   Invoice: each order delivered in the last 6 hours gets its invoice (invoiceEmailedAt).
 //   Refund started: each paid order cancelled in the last 6 hours (by the customer, the kitchen or the admin
 //     panel) gets how much goes back and where, wallet and/or UPI / card (refundEmailedAt).
+//   Refund request decided: a customer's refund request approved or rejected in the admin panel in the last 6
+//     hours gets the outcome (refundRequests.emailedAt). Refunds an admin made from an order's page count too.
 //   Refund done: a refund to UPI / card gets a second email once Razorpay confirms it (refund.refundStatus
-//     'processed', set by the Razorpay webhook), for orders cancelled in the last 10 days (refundDoneEmailedAt).
+//     'processed', set by the Razorpay webhook), for refunds of the last 10 days (refundDoneEmailedAt).
 // The time windows mean switching the mailbox on doesn't email customers about old orders.
 import { store } from '../db/index.js';
 import { config } from '../config.js';
 import { nowIso, MIN, DAY } from './http.js';
 import { serialize } from './rules.js';
-import { mailEnabled, sendMail, invoiceEmail, refundEmail } from './mail.js';
+import { mailEnabled, sendMail, invoiceEmail, refundEmail, refundDecisionEmail } from './mail.js';
 
 const RECENT_MS = 6 * 60 * MIN;
 const REFUND_DONE_MS = 10 * DAY;
@@ -46,8 +48,25 @@ export function sendOrderEmails() {
     for (const order of await store.find('orders', { status: 'cancelled', cancelledAt: { $gte: since } })) {
       const refund = order.refund;
       if (!(refund?.amount > 0)) continue;
-      if (order.cancelledAt >= recent) await sendOnce(order, 'refundEmailedAt', customer => refundEmail(customer, order, 'started'));
+      // Refunds from the admin panel's Refund (refund.at) are told by the request email below instead.
+      if (order.cancelledAt >= recent && !refund.at) await sendOnce(order, 'refundEmailedAt', customer => refundEmail(customer, order, 'started'));
       if (refund.to === 'source' && refund.refundStatus === 'processed') {
+        await sendOnce(order, 'refundDoneEmailedAt', customer => refundEmail(customer, order, 'done'));
+      }
+    }
+
+    for (const request of await store.find('refundRequests', { decidedAt: { $gte: since } })) {
+      const order = await store.findById('orders', request.orderId);
+      if (request.decidedAt >= recent && !request.emailedAt && (request.emailTries || 0) < MAX_TRIES) {
+        const customer = await store.findById('customers', request.customerId);
+        if (!customer?.email) await store.update('refundRequests', request._id, { emailTries: MAX_TRIES, emailError: 'No email address on the account' });
+        else {
+          const sent = await sendMail(refundDecisionEmail(customer, request, order));
+          await store.update('refundRequests', request._id, sent ? { emailedAt: nowIso() } : { emailTries: (request.emailTries || 0) + 1, emailError: 'Sending failed (see the API log)' });
+        }
+      }
+      // An approved refund to UPI / card on a delivered order: the "sent" email once Razorpay confirms it.
+      if (order && order.status !== 'cancelled' && order.refund?.to === 'source' && order.refund.refundStatus === 'processed') {
         await sendOnce(order, 'refundDoneEmailedAt', customer => refundEmail(customer, order, 'done'));
       }
     }

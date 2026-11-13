@@ -36,6 +36,13 @@ What it does (first version):
   ride from the kitchen to the door; once picked up, the ride to the door. Ride times are the road route's,
   kept current as the rider gets nearer; without a route, the distance on city roads at about 22 km/h.
 
+- Live location (`src/lib/location.js`, `src/state/here.js`; `@react-native-community/geolocation`, location
+  permission asked on first open): the menu's "Delivering to" shows where the phone is (or the saved address
+  there, within 300 m), with "Service unavailable" outside the delivery area. Adding an address fills it in
+  from the current location (sector, city, pincode, building), and every field can still be typed or changed;
+  "Use my current location" refreshes it. The rider is taken to that spot. The address comes from the API's
+  `/api/places/reverse` (Google Maps with a key, otherwise OpenStreetMap).
+
 Still to come: Google sign-in, picking the address on a map, push notifications.
 
 ## Build the app on this PC
