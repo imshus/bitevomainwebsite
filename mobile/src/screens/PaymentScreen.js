@@ -92,13 +92,28 @@ export default function PaymentScreen({ navigation, route }) {
     }
   };
 
+  // Razorpay's window closed. A clear "paid" places the order; anything else (cancelled, failed, or the result lost
+  // on the way back from the UPI app) first asks the server whether the money came in anyway: then the server
+  // places the order, so a payment never ends up refunded just because the app lost track of it.
   const onPaid = async result => {
+    const rzpOrderId = paying?.orderId;
     setPaying(null);
-    if (result.type !== 'paid') { setError(result.description); setBusy(false); return; }
+    const recover = async fallback => {
+      try {
+        const r = rzpOrderId ? await api.completePayment(rzpOrderId) : null;
+        if (r?.order) { done(r.order); return; }
+        setError(r?.message || fallback);
+      } catch {
+        setError(fallback);
+      }
+      setBusy(false);
+    };
+    if (result.type !== 'paid') { await recover(result.description); return; }
     try {
       done(await api.placeOrder({ ...body, payment: { orderId: result.orderId, paymentId: result.paymentId, signature: result.signature } }));
     } catch (err) {
-      failed(err);
+      if (err.data?.quote) { failed(err); return; }
+      await recover(err.message);
     }
   };
 

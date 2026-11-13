@@ -107,6 +107,8 @@ export const api = {
 
   quote: cart => post('/orders/quote', cart, { quiet401: true }),
   payOnline: order => post('/orders/pay', order),
+  // After Razorpay's window closes without a clear "paid": { order } if the money came in (the server places it).
+  completePayment: razorpayOrderId => post(`/orders/pay/${encodeURIComponent(razorpayOrderId)}/complete`),
   placeOrder: order => post('/orders', order),
   orders: () => get('/orders'),
   order: id => get(`/orders/${id}`),
