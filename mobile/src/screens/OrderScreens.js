@@ -12,6 +12,7 @@ import { Bike, Check, Receipt } from '../components/Icons';
 import RiderMap from '../components/RiderMap';
 import { useLiveTrip } from '../lib/eta';
 import { useConfig } from '../state/data';
+import { RefundStatus } from './RefundScreens';
 import { C, R } from '../theme';
 
 const REFRESH_MS = 5000; // while the order is live, so the steps, the rider and the map move within seconds
@@ -168,7 +169,7 @@ function RiderCard({ order }) {
   );
 }
 
-export function OrderDetailScreen({ route }) {
+export function OrderDetailScreen({ route, navigation }) {
   const { id, justPlaced } = route.params;
   const [order, setOrder] = useState(null);
   const [error, setError] = useState(null);
@@ -176,7 +177,8 @@ export function OrderDetailScreen({ route }) {
   const [openingInvoice, setOpeningInvoice] = useState(false);
 
   const load = useCallback(() => api.order(id).then(o => { setOrder(o); setError(null); }, setError), [id]);
-  useEffect(() => { load(); }, [load]);
+  // Loaded each time the page shows, so coming back from "Request a refund" shows the request.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
   // While the order is live, check for news every few seconds, only while this screen is showing and the app
   // is open (and straight away on coming back to it).
   const live = Boolean(order && LIVE_STATUSES.includes(order.status));
@@ -211,9 +213,13 @@ export function OrderDetailScreen({ route }) {
         setCancelling(true);
         try { setOrder(await api.cancelOrder(order._id)); } catch (err) { Confirm.alert('Couldn’t cancel', err.message); }
         setCancelling(false);
+        load(); // picks up whether a refund can still be asked for
       },
     },
   ]);
+  const askRefund = () => navigation.navigate('RefundRequest', {
+    order: { _id: order._id, orderNo: order.orderNo, paymentMethod: order.paymentMethod, paid: order.paid, total: order.total },
+  });
 
   return (
     <ScrollView style={{ backgroundColor: C.bg }} contentContainerStyle={{ padding: 14, gap: 12 }}>
@@ -256,6 +262,8 @@ export function OrderDetailScreen({ route }) {
 
       <RiderCard order={order} />
 
+      {order.refundRequest && <RefundStatus request={order.refundRequest} paymentMethod={order.paymentMethod} />}
+
       <Card style={{ gap: 8 }}>
         <Text style={st.cardTitle}>Your order</Text>
         {order.items.map((i, n) => (
@@ -283,6 +291,7 @@ export function OrderDetailScreen({ route }) {
 
       {order.status === 'placed' && <Button title="Cancel order" kind="outline" onPress={cancel} busy={cancelling} />}
       <Button title="Invoice" kind="outline" onPress={openInvoice} busy={openingInvoice} />
+      {order.canRequestRefund && <Button title="Request a refund" kind="outline" onPress={askRefund} />}
       <Button title={`Need help? Call ${SUPPORT_PHONE}`} kind="outline" onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`)} />
     </ScrollView>
   );
