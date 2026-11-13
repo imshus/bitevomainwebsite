@@ -107,10 +107,14 @@ export const api = {
 
   quote: cart => post('/orders/quote', cart, { quiet401: true }),
   payOnline: order => post('/orders/pay', order),
+  // After Razorpay's window closes without a clear "paid": { order } if the money came in (the server places it).
+  completePayment: razorpayOrderId => post(`/orders/pay/${encodeURIComponent(razorpayOrderId)}/complete`),
   placeOrder: order => post('/orders', order),
   orders: () => get('/orders'),
   order: id => get(`/orders/${id}`),
   cancelOrder: id => post(`/orders/${id}/cancel`),
   requestRefund: (id, body) => post(`/orders/${id}/refund-request`, body),
-  rateOrder: (id, rating) => post(`/orders/${id}/rating`, { rating }),
+  refunds: () => get('/me/refunds'), // the Refunds page: refund requests and payments without an order
+  // { rating } alone, or with { tags, feedback } from the rating form.
+  rateOrder: (id, rating, extra = {}) => post(`/orders/${id}/rating`, { rating, ...extra }),
 };

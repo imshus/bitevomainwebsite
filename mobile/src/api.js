@@ -73,9 +73,15 @@ export const api = {
 
   quote: cart => post('/orders/quote', cart, { quiet401: true }),
   payOnline: order => post('/orders/pay', order), // a Razorpay order to pay (see components/RazorpayCheckout.js)
+  // After Razorpay's window closes without a clear "paid": { order } if the money came in (the server places it),
+  // { paid: false } if it didn't, { refunded, message } if it had to be refunded.
+  completePayment: razorpayOrderId => post(`/orders/pay/${encodeURIComponent(razorpayOrderId)}/complete`),
   placeOrder: order => post('/orders', order),
   orders: () => get('/orders'),
   order: id => get(`/orders/${id}`),
   cancelOrder: id => post(`/orders/${id}/cancel`),
+  // { reason, details, to: 'wallet' | 'source', amount }: recorded for the kitchen to approve or reject.
+  requestRefund: (id, body) => post(`/orders/${id}/refund-request`, body),
+  refunds: () => get('/me/refunds'), // the Refunds screen: refund requests and payments without an order
   invoiceLink: id => get(`/orders/${id}/invoice-link`), // { path }: the invoice page, openable without signing in for a day
 };

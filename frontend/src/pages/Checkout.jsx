@@ -282,11 +282,27 @@ export default function Checkout() {
           });
         } catch (err) {
           if (!err.dismissed) throw err;
-          toast(err.message);
-          setPlacing(false);
-          return;
+          // Closed without a clear "paid" (e.g. paid in the UPI app, then closed the window): if the money came in
+          // anyway, the server places the order now.
+          const r = await api.completePayment(pay.orderId).catch(() => null);
+          if (!r?.order) {
+            toast(r?.message || err.message);
+            setPlacing(false);
+            return;
+          }
+          paid = { recovered: r.order };
         }
-        order = await api.placeOrder({ ...orderBody, payment: { orderId: paid.razorpay_order_id, paymentId: paid.razorpay_payment_id, signature: paid.razorpay_signature } });
+        if (paid.recovered) order = paid.recovered;
+        else {
+          try {
+            order = await api.placeOrder({ ...orderBody, payment: { orderId: paid.razorpay_order_id, paymentId: paid.razorpay_payment_id, signature: paid.razorpay_signature } });
+          } catch (err) {
+            // The payment went through but placing failed (e.g. it couldn't be verified): the server tries itself.
+            const r = err.data?.quote ? null : await api.completePayment(pay.orderId).catch(() => null);
+            if (!r?.order) throw r?.message ? Object.assign(new Error(r.message), { status: err.status }) : err;
+            order = r.order;
+          }
+        }
       } else {
         order = await api.placeOrder(orderBody);
       }

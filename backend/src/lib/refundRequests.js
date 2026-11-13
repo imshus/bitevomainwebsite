@@ -1,11 +1,14 @@
 // Refund requests: a customer unhappy with an order (the food, missing or wrong items…) asks for their money
 // back from the order page, saying where it should go: their BiteVo wallet, or back to how they paid (UPI / card,
-// only for orders paid online). The website only records the request; an admin approves (choosing the amount
-// and destination) or rejects it in the admin panel (Refund requests), which makes the refund. The customer sees
-// the outcome on the order page and gets an email (lib/orderEmails.js).
+// only for orders paid online). The website never refunds anything itself: it only records the request, and an
+// admin approves (choosing the amount and destination) or rejects it in the admin panel (Refund requests), which
+// makes the refund. The customer sees the outcome on the order page and the Refunds page, and gets an email
+// (lib/orderEmails.js).
 // Who can ask: a delivered order within REQUEST_WINDOW_DAYS of delivery, or a cancelled order that was paid for
-// but not refunded. One request per order.
-import { DAY } from './http.js';
+// but not refunded. One request per order. A customer cancelling a paid order gets one made for them
+// (cancelRequest), for everything they paid.
+import { DAY, nowIso } from './http.js';
+import { CUSTOMER_CANCEL_REASON } from './settings.js';
 
 export const REQUEST_WINDOW_DAYS = 3;
 
@@ -16,6 +19,9 @@ export const REASONS = {
   late: 'Very late delivery',
   other: 'Something else',
 };
+
+// The reason of the request made when the customer cancels a paid order (not one they can choose).
+export const CANCELLED = { key: 'cancelled', label: 'Order cancelled' };
 
 // What the customer paid for this order, by how: { online, wallet, cash, total }. (The admin panel's
 // lib/refunds.js counts it the same way.)
@@ -39,10 +45,24 @@ export function cantRequest(order, existing) {
   return null;
 }
 
+// The refund request for a paid order the customer has just cancelled: everything they paid, back to how they
+// paid (UPI / card for the part paid online; the admin panel sends any wallet part back to the wallet), or to the
+// wallet if it was all paid from there. Pending until an admin approves it. Null when nothing was paid.
+export function cancelRequest(order) {
+  const paid = paidFor(order);
+  if (paid.total <= 0) return null;
+  return {
+    orderId: order._id, orderNo: order.orderNo, customerId: order.customerId, customerName: order.customerName, customerPhone: order.customerPhone,
+    reason: CANCELLED.key, reasonLabel: CANCELLED.label, details: CUSTOMER_CANCEL_REASON, amount: paid.total,
+    to: paid.online > 0 ? 'source' : 'wallet', status: 'pending', createdAt: nowIso(), auto: true,
+  };
+}
+
 // The request as the customer sees it.
 export const publicRequest = r => r && ({
   _id: r._id,
   status: r.status, // pending | approved | rejected
+  kind: r.reason, // a REASONS key, or 'cancelled'
   reason: r.reasonLabel || REASONS[r.reason] || r.reason,
   details: r.details || '',
   amount: r.amount,
