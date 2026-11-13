@@ -51,7 +51,7 @@ production).
 - Apply offer codes (all the panel's coupon types, with the same maths and limits).
 - Pay on delivery, or partly or fully from the BiteVo wallet.
 - Follow the order live (placed → preparing → out for delivery → delivered), cancel it before the
-  kitchen accepts it (wallet money is refunded), rate it, and order it again.
+  kitchen accepts it (a refund request for anything paid goes to the admin panel), rate it, and order it again.
 - See the delivery partner on the order page: who it is, and once they've accepted, a live map (Leaflet with
   OpenStreetMap tiles, no Google key needed) like a delivery app's tracking view, in two stages: **picking up**
   (the road route and distance to the kitchen) and **on the way** (the route and arrival time to the door). The
@@ -77,14 +77,14 @@ production).
   The keys are `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` in `backend/.env` (or the admin panel's names,
   `ROZERPAY_API` / `ROZERPAY_SECRET`); without them checkout offers cash on delivery and the wallet only.
   An online order is placed only after the server has checked the payment's signature and the payment itself
-  with Razorpay (`backend/src/lib/razorpay.js`). The order being paid for is kept with each payment, so if the
-  app or browser loses track of a payment (the result lost on the way back from the UPI app, the app closed…),
-  the server places the order itself: when the app asks (`POST /api/orders/pay/:id/complete`, after Razorpay's
-  window closes without a clear "paid") or from the API's check 2 minutes later. It refunds instead only when the
-  order can't be placed any more or the customer has ordered again since (no second order). The website opens Razorpay's window; the app opens Razorpay's checkout in a web view,
-  which returns through `POST /api/payments/razorpay-return` (`backend/src/routes/payments.js`).
-  Cancelling: the customer (before the kitchen accepts) and the admin panel ("Refund to UPI/Card") refund the
-  online part through Razorpay and the wallet part to the wallet.
+  with Razorpay (`backend/src/lib/razorpay.js`); a payment that comes in without an order (the order failed after
+  paying, or the customer closed the page) is marked `held` in `payments`, at once or by the API's 3-minute check,
+  and refunded only from the admin panel's **No-order payments** page. The website opens Razorpay's window; the app
+  opens Razorpay's checkout in a web view, which returns through `POST /api/payments/razorpay-return`
+  (`backend/src/routes/payments.js`).
+  **Refunds are made only in the admin panel**: the website and the app never send money back by themselves. A
+  customer cancelling a paid order (before the kitchen accepts) gets a refund request for everything they paid;
+  the admin panel approves it, or cancels an order itself with "Refund to UPI/Card".
   **Webhook** (recommended): Razorpay dashboard → Accounts & Settings → Webhooks → add
   `https://api.bitevo.in/api/payments/razorpay-webhook` with the events `payment.captured`, `payment.failed`,
   `refund.processed` and `refund.failed`, and put its secret in `RAZORPAY_WEBHOOK_SECRET` (or `RAZORPAY_WEBHOOK` / `ROZERPAY_WEBHOOK`).
@@ -94,9 +94,14 @@ production).
   delivered order (up to 3 days after delivery) or a cancelled one that was paid for and not refunded, the
   customer says what went wrong (food quality, missing or wrong items, very late, other), the amount and where it
   should go: back to UPI / card (orders paid online) or the BiteVo wallet. `POST /api/orders/:id/refund-request`
-  only records it (one per order, in `refundRequests`); the admin panel's **Refund requests** page approves (amount
-  and destination) or rejects it (with a note), and makes the refund. The order page shows the request's status,
-  and the customer gets an email with the outcome, then another when a UPI / card refund is sent.
+  only records it (one per order, in `refundRequests`; cancelling a paid order makes one too, reason
+  `cancelled`); the admin panel's **Refund requests** page approves (amount and destination) or rejects it (with
+  a note), and makes the refund. The order page shows the request's status, and the customer gets an email with the
+  outcome, then another when a UPI / card refund is sent.
+- **Refunds page** (`/refunds`, `frontend/src/pages/Refunds.jsx`; the app's Refunds screen): every refund request and
+  every payment without an order, with where each stands (under review, approved, not approved, the note from
+  BiteVo), and how refunds work. Linked from the menu, My account, the wallet and the order page.
+  `GET /api/me/refunds` (`backend/src/routes/account.js`).
 - **Invoice** for every order: the "Invoice" button on the order page (website and app) and the link in the
   order email open a printable invoice (Save as PDF) with the whole bill: business details (`BUSINESS_*`,
   `GSTIN`, `FSSAI_LICENSE`), invoice number per financial year (`INV/26-27/BV1108-007`), customer and delivery
@@ -188,9 +193,10 @@ What goes out by email (only when `SMTP_USER` and `SMTP_PASS` are set; without t
 - A welcome email, and an order confirmation with a link to the invoice.
 - **The invoice once the order is delivered** (`backend/src/lib/orderEmails.js`, checked every 2 minutes): the
   bill, a "Download invoice (PDF)" button and the invoice attached.
-- **Refund updates**: when a paid order is cancelled (by the customer, the kitchen or the admin panel), how much
-  goes back and where (BiteVo wallet straight away, UPI / card through Razorpay); and for a UPI / card refund,
-  a second email once Razorpay confirms it (the Razorpay webhook).
+- **Refund updates**: when the kitchen or the admin panel cancels and refunds a paid order, how much goes back and
+  where (BiteVo wallet straight away, UPI / card through Razorpay); when a refund request (including the one made
+  for a customer's own cancellation) is approved or rejected, the outcome; and for a UPI / card refund, a second
+  email once Razorpay confirms it (the Razorpay webhook).
 - Every account has an email address and a mobile number: signing up with a number asks for the email, signing
   up with an email address asks for the number (saved as the delivery number), on the website and in the app.
   Older accounts without an email address simply don't get these emails.
@@ -232,7 +238,9 @@ and printed in the API log. To go live, connect a provider in `backend/src/lib/s
 | `products`, `categories`, `coupons`, `settings` | reads | Managed in the panel |
 | `customers` | reads/writes | Phone `+91 98765 43210`, plus `addresses` and `email` |
 | `orders` | writes | Panel format (`BVmmdd-NNN`, `status: placed`, …) plus `address`, `note`, `source: 'web'` |
-| `walletTxns` | reads/writes | `payment` when the wallet is used, `refund` when a customer cancels |
+| `walletTxns` | reads/writes | `payment` when the wallet is used (refunds to the wallet are written by the admin panel) |
+| `refundRequests` | reads/writes | "Request a refund" and customers' cancellations of paid orders; decided in the panel |
+| `payments` | reads/writes | Razorpay orders: `created` → `paid`, or `held` (no order; refunded in the panel) |
 | `sessions`, `loginEvents` | writes | `role: 'customer'`, shown on the panel's Login status page (and revocable there) |
 | `otpCodes`, `supportMessages` | writes | Website only |
 | `referrals` | reads/writes | Website only (refer & earn); rewards go into `walletTxns` as `cashback` |

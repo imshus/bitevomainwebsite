@@ -2,10 +2,11 @@
 // looks every 2 minutes). Needs the mailbox (SMTP_USER / SMTP_PASS) and an email address on the account (asked
 // for when signing up). Each email goes once; a failed send is tried again on the next checks, up to 3 times.
 //   Invoice: each order delivered in the last 6 hours gets its invoice (invoiceEmailedAt).
-//   Refund started: each paid order cancelled in the last 6 hours (by the customer, the kitchen or the admin
-//     panel) gets how much goes back and where, wallet and/or UPI / card (refundEmailedAt).
+//   Refund started: each paid order the kitchen or the admin panel cancelled (and refunded) in the last 6 hours
+//     gets how much goes back and where, wallet and/or UPI / card (refundEmailedAt).
 //   Refund request decided: a customer's refund request approved or rejected in the admin panel in the last 6
-//     hours gets the outcome (refundRequests.emailedAt). Refunds an admin made from an order's page count too.
+//     hours gets the outcome (refundRequests.emailedAt), including the request made when a customer cancels a
+//     paid order (the website itself never refunds). Refunds an admin made from an order's page count too.
 //   Refund done: a refund to UPI / card gets a second email once Razorpay confirms it (refund.refundStatus
 //     'processed', set by the Razorpay webhook), for refunds of the last 10 days (refundDoneEmailedAt).
 // The time windows mean switching the mailbox on doesn't email customers about old orders.

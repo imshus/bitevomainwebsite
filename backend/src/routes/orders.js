@@ -13,9 +13,9 @@ import { requireCustomer, optionalCustomer } from '../auth.js';
 import { quote, hasOrdered } from '../pricing.js';
 import { settleOffers } from '../lib/offers.js';
 import { config } from '../config.js';
-import { razorpayEnabled, createRazorpayOrder, signatureValid, confirmPayment, methodLabel, refundUnused, refundPayment, paymentFor, onUnclaimedPayment } from '../lib/razorpay.js';
+import { razorpayEnabled, createRazorpayOrder, signatureValid, confirmPayment, methodLabel, holdPayment } from '../lib/razorpay.js';
 import { invoiceHtml, invoiceHeaders, invoicePath } from '../lib/invoice.js';
-import { REASONS, cantRequest, paidFor, publicRequest } from '../lib/refundRequests.js';
+import { REASONS, cantRequest, cancelRequest, paidFor, publicRequest } from '../lib/refundRequests.js';
 
 export const router = Router();
 
@@ -102,6 +102,11 @@ const publicOrder = (o, agent = null) => ({
   rating: o.rating ?? null,
   history: (o.history || []).map(h => ({ status: h.status, at: h.at })),
 });
+
+// Why a payment can't place an order any more: it's waiting for our team to refund it, or has been refunded.
+const usedPayment = record => (record.status === 'held'
+  ? 'This payment is with our team to be refunded (see your Refunds page). Please place the order again.'
+  : 'This payment has been refunded. Please place the order again.');
 
 async function ownOrder(req) {
   const order = await store.findById('orders', req.params.id);
@@ -263,16 +268,27 @@ router.post('/pay', async (req, res) => {
   });
 });
 
-// The parts of an order request that are kept with a payment (what POST /orders reads).
-const orderRequest = b => ({
-  items: Array.isArray(b.items) ? b.items.slice(0, 50).map(i => ({ productId: String(i?.productId || ''), qty: Number(i?.qty) || 0 })) : [],
-  addressId: b.addressId ? String(b.addressId) : null,
-  couponCode: b.couponCode ? String(b.couponCode).slice(0, 40) : null,
-  useWallet: Boolean(b.useWallet),
-  note: typeof b.note === 'string' ? b.note.slice(0, 200) : '',
-  ...(b.deliveryPhone && { deliveryPhone: String(b.deliveryPhone).slice(0, 20) }),
-  ...(b.expectedTotal != null && { expectedTotal: Number(b.expectedTotal) }),
-});
+// Places an order. Orders are placed one at a time, so a double-click can't spend the same wallet
+// balance twice and order numbers (the panel's BVmmdd-NNN pattern) don't clash.
+// Paid online: `payment` = { orderId, paymentId, signature } from Razorpay. The signature and the payment are
+// checked with Razorpay first; if the order then can't be placed, the payment is kept for the admin panel
+// (Payments without an order), where an admin refunds it. The website never refunds it itself.
+router.post('/', async (req, res) => {
+  const customer = req.customer;
+  const body = req.body || {};
+  let online = null;
+  if (body.payment) {
+    const { orderId, paymentId, signature } = body.payment;
+    if (!razorpayEnabled()) throw badRequest('Online payment isn’t set up.');
+    if (!signatureValid(String(orderId), String(paymentId), String(signature))) {
+      throw badRequest('We couldn’t verify that payment. If money was taken, our team will refund it.');
+    }
+    const record = await store.findById('payments', String(orderId));
+    if (!record || record.customerId !== customer._id) throw badRequest('We couldn’t find that payment.');
+    if (record.status === 'paid') return res.json(publicOrder(await store.findById('orders', record.orderId))); // a retry: already placed
+    if (record.status !== 'created') throw conflict(usedPayment(record));
+    online = { record, payment: await confirmPayment(String(paymentId), record) };
+  }
 
 // Places an order (`online`: its confirmed Razorpay payment { record, payment }), one at a time, so a double
 // submit can't spend the same wallet balance twice and order numbers (BVmmdd-NNN) don't clash. Paid but not
@@ -283,7 +299,7 @@ async function placeOrderNow(customer, body, online) {
       if (online) { // a double submit (or the server, completePayment) may have placed it a moment ago
         const fresh = await store.findById('payments', online.record._id);
         if (fresh.status === 'paid') return { order: await store.findById('orders', fresh.orderId), again: true };
-        if (fresh.status !== 'created') throw conflict('This payment has been refunded. Please place the order again.');
+        if (fresh.status !== 'created') throw conflict(usedPayment(fresh));
       }
       const checked = await checkOrder(body, customer);
       if (online && checked.bill.payable !== online.record.amount) {
@@ -295,10 +311,11 @@ async function placeOrderNow(customer, body, online) {
     });
   } catch (err) {
     if (!online || err.status === 409) throw err;
-    // Paid, but the order couldn't be placed: give the money back now (settlePayments() retries if this fails).
-    await refundUnused(online.record, online.payment.id, `Order not placed: ${err.message}`)
-      .catch(e => console.error(`Refund of ${online.payment.id} failed, will retry: ${e.message}`));
-    throw new HttpError(err.status || 400, `${err.message} The ${money(online.record.amount)} you paid is being refunded to your ${methodLabel(online.payment)} (3–5 working days).`);
+    // Paid, but the order couldn't be placed: the payment waits for an admin to refund it (if noting that fails,
+    // the 3-minute check in lib/razorpay.js notes it, as the payment has no order).
+    await holdPayment(online.record, online.payment, `Order not placed: ${err.message}`)
+      .catch(e => console.error(`Couldn’t note payment ${online.payment.id} for a refund (the payment check will): ${e.message}`));
+    throw new HttpError(err.status || 400, `${err.message} The ${money(online.record.amount)} you paid is safe: our team will refund it to your ${methodLabel(online.payment)}. You can follow it on your Refunds page.`);
   }
 }
 
@@ -386,8 +403,9 @@ router.get('/:id/invoice-link', async (req, res) => {
   res.json({ path: invoicePath(order._id, 1) });
 });
 
-// Customers can cancel until the kitchen accepts the order. Anything paid from the wallet goes back to it;
-// anything paid online is refunded through Razorpay (or to the wallet, if that refund can't be made).
+// Customers can cancel until the kitchen accepts the order. Nothing is refunded here: if anything was paid
+// (online or from the wallet), a refund request for all of it goes to the admin panel (Refund requests), and the
+// money goes back only once an admin approves it (lib/refundRequests.js cancelRequest).
 router.post('/:id/cancel', async (req, res) => {
   const saved = await serialize(req.customer._id, async () => {
     const order = await ownOrder(req);
@@ -395,26 +413,11 @@ router.post('/:id/cancel', async (req, res) => {
       throw badRequest(order.status === 'cancelled' ? 'This order is already cancelled.' : 'The kitchen has started on this order, so it can’t be cancelled here. Please call us.');
     }
     const at = nowIso();
-    const online = order.payment?.provider === 'razorpay' ? order.payment : null;
-    let sourceRefund = null;
-    if (online) {
-      sourceRefund = await refundPayment(online.paymentId, online.amount, { reason: CUSTOMER_CANCEL_REASON })
-        .catch(err => { console.error(`Refund for cancelled order ${order.orderNo} failed, credited to the wallet: ${err.message}`); return null; });
-    }
-    const toWallet = (order.walletUsed || 0) + (online && !sourceRefund ? online.amount : 0);
-    const paid = (order.walletUsed || 0) + (online ? online.amount : 0);
-    const refund = !paid ? null
-      : sourceRefund ? { amount: paid, to: 'source', razorpayRefundId: sourceRefund.id, refundStatus: sourceRefund.status || 'pending', ...(order.walletUsed > 0 && { wallet: order.walletUsed }) }
-      : { amount: paid, to: 'wallet' };
     const updated = await store.update('orders', order._id, {
-      status: 'cancelled', cancelReason: CUSTOMER_CANCEL_REASON, cancelledAt: at, refund, deliveryMins: null, rating: null, updatedAt: at,
+      status: 'cancelled', cancelReason: CUSTOMER_CANCEL_REASON, cancelledAt: at, deliveryMins: null, rating: null, updatedAt: at,
     }, { push: { history: { status: 'cancelled', note: CUSTOMER_CANCEL_REASON, at, by: `${order.customerName} (website)` } } });
-    if (toWallet > 0) {
-      await store.insert('walletTxns', {
-        customerId: order.customerId, customerName: order.customerName, customerPhone: order.customerPhone,
-        orderId: order._id, type: 'refund', amount: toWallet, note: `Cancelled order ${order.orderNo}`, at,
-      });
-    }
+    const request = cancelRequest(order);
+    if (request && !(await store.findOne('refundRequests', { orderId: order._id }))) await store.insert('refundRequests', request);
     return updated;
   });
   res.json(publicOrder(saved));

@@ -9,9 +9,9 @@ import usePageTitle from '../lib/usePageTitle.js';
 
 const FAQS = [
   { q: 'Where is my order?', a: <>Open <Link to="/orders">My Orders</Link> to follow it live. If it's taking longer than expected, call us on <a href={PHONE_HREF}>{PHONE}</a> with your order ID and we'll check right away.</> },
-  { q: 'Something is wrong or missing in my order', a: "We're sorry about that! Please contact us as soon as possible with your order ID and, if you can, a photo of the issue. We'll make it right." },
+  { q: 'Something is wrong or missing in my order', a: <>We're sorry about that! Open the order in <Link to="/orders">My Orders</Link> and choose “Request a refund” (up to 3 days after delivery), or contact us with your order ID and, if you can, a photo of the issue. We'll make it right.</> },
   { q: 'Can I cancel my order?', a: <>Yes — until the kitchen accepts it, you can cancel from the order's page in <Link to="/orders">My Orders</Link>. After that, call us as soon as you can and we'll do our best to help.</> },
-  { q: 'When will I get my refund?', a: 'Anything you paid from your BiteVo wallet goes straight back to it. Other approved refunds go back to your original payment method; how long that takes depends on your bank or payment provider.' },
+  { q: 'When will I get my refund?', a: <>Our team checks and approves every refund, including for cancelled orders; you can follow each one on your <Link to="/refunds">Refunds</Link> page and we email you the outcome. Once approved, a refund to your BiteVo wallet arrives straight away; one back to your UPI or card takes 5–7 working days, depending on your bank.</> },
   { q: 'Which payment methods do you accept?', a: 'On the website you can pay on delivery, in cash or by UPI, and use your BiteVo wallet balance. All the options available to you are shown at checkout.' },
   { q: 'Do you deliver to my area?', a: 'When you add a delivery address at checkout, you pick from the areas we currently deliver to.' },
   { q: 'How do I delete my account or my data?', a: <>Go to <Link to="/account">My Account</Link> and choose <b>Delete account</b>, just above Sign out. You can also email us at <a href={`mailto:${EMAIL}`}>{EMAIL}</a> from your registered email, or call us, and we'll take care of it. See our <Link to="/privacy">Privacy Policy</Link> for more.</> },

@@ -80,5 +80,8 @@ export const api = {
   orders: () => get('/orders'),
   order: id => get(`/orders/${id}`),
   cancelOrder: id => post(`/orders/${id}/cancel`),
+  // { reason, details, to: 'wallet' | 'source', amount }: recorded for the kitchen to approve or reject.
+  requestRefund: (id, body) => post(`/orders/${id}/refund-request`, body),
+  refunds: () => get('/me/refunds'), // the Refunds screen: refund requests and payments without an order
   invoiceLink: id => get(`/orders/${id}/invoice-link`), // { path }: the invoice page, openable without signing in for a day
 };

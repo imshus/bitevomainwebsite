@@ -32,6 +32,7 @@ export default function SiteMenu({ onClose }) {
         <NavLink to="/" end className={navClass} onClick={onClose}>Menu</NavLink>
         {customer && <NavLink to="/orders" className={navClass} onClick={onClose}>My Orders</NavLink>}
         {customer && <NavLink to="/wallet" className={navClass} onClick={onClose}>Wallet</NavLink>}
+        {customer && <NavLink to="/refunds" className={navClass} onClick={onClose}>Refunds</NavLink>}
         <NavLink to="/refer" className={navClass} onClick={onClose}>Refer &amp; Earn</NavLink>
         <NavLink to="/about" className={navClass} onClick={onClose}>About</NavLink>
         <NavLink to="/delivery-partner" className={navClass} onClick={onClose}>Become a delivery partner</NavLink>

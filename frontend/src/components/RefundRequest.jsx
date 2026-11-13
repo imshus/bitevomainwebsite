@@ -1,7 +1,10 @@
 // "Request a refund" on the order page (backend lib/refundRequests.js): the customer says what went wrong and
-// where the money should go (BiteVo wallet, or back to UPI / card for orders paid online). The kitchen approves or
-// rejects it in the admin panel; RefundStatus shows where it stands.
+// where the money should go (BiteVo wallet, or back to UPI / card for orders paid online). Only an admin makes
+// refunds: they approve or reject requests in the admin panel. RefundStatus shows where one stands, on the order
+// page and the Refunds page (also for a cancelled paid order, whose request is made for the customer, and for a
+// payment that didn't become an order).
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Modal from './Modal.jsx';
 import { api } from '../api.js';
 import { money, formatWhen } from '../lib/format.js';
@@ -16,18 +19,33 @@ const REASONS = [
 
 const where = (to, paymentMethod) => (to === 'source' ? `your ${paymentMethod && paymentMethod !== 'Cash on delivery' ? paymentMethod : 'original payment method'}` : 'your BiteVo wallet');
 
-export function RefundStatus({ request, paymentMethod }) {
+// While it's under review, by kind: a cancelled paid order, a payment without an order, or a request the
+// customer made. `paid` ({ online, wallet, … }) splits a cancelled order's refund back to UPI / card and wallet.
+function waiting(request, paymentMethod, paid) {
+  const to = where(request.to, paymentMethod);
+  if (request.kind === 'cancelled') {
+    const split = request.to === 'source' && paid?.wallet > 0 && paid.online > 0
+      ? `: ${money(paid.online)} to ${to} and ${money(paid.wallet)} to your BiteVo wallet` : ` to ${to}`;
+    return `You cancelled this order, so we’ve asked our team to refund the ${money(request.amount)} you paid${split}. We’ll email you once it’s decided.`;
+  }
+  if (request.kind === 'no_order') return `The order wasn’t placed, so our team will refund the ${money(request.amount)} you paid to ${to}.`;
+  return `We’re looking into it: ${String(request.reason || '').toLowerCase()}. You asked for ${money(request.amount)} to ${to}. We’ll email you once it’s decided.`;
+}
+
+const SINCE = { cancelled: 'Cancelled', no_order: 'Paid' };
+
+// `title` and `to` (a link, e.g. to the order) are for the Refunds page; the order page shows "Refund request"
+// and, with `allLink`, a link to the Refunds page.
+export function RefundStatus({ request, paymentMethod, paid = null, title = 'Refund request', to = null, allLink = false }) {
   const tone = request.status === 'approved' ? 'ok' : request.status === 'rejected' ? 'no' : 'wait';
   const d = request.decision;
   return (
     <div className={`panel refund-status refund-status--${tone}`} aria-live="polite">
       <div className="refund-status__head">
-        <b>Refund request</b>
+        {to ? <Link to={to} className="refund-status__title">{title} ›</Link> : <b>{title}</b>}
         <span className="refund-status__pill">{tone === 'ok' ? 'Approved' : tone === 'no' ? 'Not approved' : 'Under review'}</span>
       </div>
-      {tone === 'wait' && (
-        <p>We’re looking into it: {request.reason.toLowerCase()}. You asked for {money(request.amount)} to {where(request.to, paymentMethod)}. We’ll email you once it’s decided.</p>
-      )}
+      {tone === 'wait' && <p>{waiting(request, paymentMethod, paid)}</p>}
       {tone === 'ok' && d && (
         <p>
           {money(d.amount)} refunded{d.to === 'source' && d.wallet > 0
@@ -37,7 +55,10 @@ export function RefundStatus({ request, paymentMethod }) {
       )}
       {tone === 'no' && <p>We couldn’t approve this refund.</p>}
       {request.note && <p className="refund-status__note"><b>From BiteVo:</b> {request.note}</p>}
-      <small className="muted">Asked {formatWhen(request.createdAt)}{request.decidedAt ? ` · decided ${formatWhen(request.decidedAt)}` : ''}</small>
+      <small className="muted">
+        {SINCE[request.kind] || 'Asked'} {formatWhen(request.createdAt)}{request.decidedAt ? ` · decided ${formatWhen(request.decidedAt)}` : ''}
+        {allLink && <> · <Link to="/refunds">All your refunds</Link></>}
+      </small>
     </div>
   );
 }

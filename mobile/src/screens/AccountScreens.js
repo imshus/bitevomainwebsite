@@ -8,7 +8,7 @@ import { useConfig } from '../state/data';
 import { formatWhen, money } from '../lib/format';
 import { SITE_URL, SUPPORT_EMAIL, SUPPORT_PHONE } from '../config';
 import { Button, Card, Empty, LoadError, Loading } from '../components/ui';
-import { ChevronRight, Gift, Mail, MapPin, Phone, Receipt, User, Wallet } from '../components/Icons';
+import { ChevronRight, Gift, Mail, MapPin, Phone, Receipt, Shield, User, Wallet } from '../components/Icons';
 import { C, R } from '../theme';
 
 export function WalletScreen({ navigation }) {
@@ -107,6 +107,7 @@ export function AccountScreen({ navigation }) {
         {customer?.name && <Row icon={<Receipt size={20} color={C.red} />} title="My orders" onPress={() => navigation.navigate('Orders')} />}
         {customer?.name && <Row icon={<MapPin size={20} color={C.red} />} title="Saved addresses" sub={`${customer.addresses?.length || 0} saved`} onPress={() => navigation.navigate('Addresses')} />}
         {customer?.name && <Row icon={<Wallet size={20} color={C.red} />} title="Wallet" onPress={() => navigation.navigate('Wallet')} />}
+        {customer?.name && <Row icon={<Shield size={20} color={C.red} />} title="Refunds" sub="Refunds you’ve asked for and where they stand" onPress={() => navigation.navigate('Refunds')} />}
         <Row icon={<Gift size={20} color={C.red} />} title="Refer & earn" sub="Invite friends, earn wallet cashback" onPress={() => open('/refer')} />
       </View>
 
