@@ -7,12 +7,15 @@ import { prefersReducedMotion } from '../lib/motion.js';
 // pointer or keyboard focus is on it, and stays still for visitors who ask for reduced motion.
 // Images live in public/assets/banners: a 1600×600 JPG plus 800, 1200 and 1600 wide WebP copies. The first banner is
 // the biggest thing on the menu's first screen, so the page asks for it straight away (FIRST_BANNER in
-// vite.config.js) and ahead of other images; the rest wait until they're nearly in view. With one banner there
-// are no arrows or dots and nothing moves.
+// vite.config.js) and ahead of other images; the rest wait until they're nearly in view.
 const BANNERS = [
   {
+    file: 'offer-first-order',
+    alt: 'BiteVo home-style food offer: ₹20 signup bonus, no platform fee, free delivery in Sector 40, 44 and 45, one free item with every order, and a ₹1 item on orders of ₹399+.',
+  },
+  {
     file: 'offer-rewards',
-    alt: 'Order more, save more: ₹20 signup bonus, ₹20 cashback on delivery and ₹100 referral cashback in wallet coins, free delivery on every order and a ₹1 store item on orders of ₹399+.',
+    alt: 'BiteVo fast food favourites: burgers, pizza, sandwiches, momos and spring rolls, with signup bonus, free delivery, one free item with every order and a ₹1 item on orders of ₹399+.',
   },
 ];
 const MANY = BANNERS.length > 1;

@@ -84,7 +84,7 @@ export const config = {
   // The "Order more, save more" offers (see lib/offers.js). 0 switches one off.
   offers: {
     signupBonus: num(process.env.SIGNUP_BONUS, 20), // wallet coins for every new account
-    deliveryCashback: num(process.env.DELIVERY_CASHBACK, 0), // wallet coins for every delivered order (0 = off: only the signup bonus)
+    deliveryCashback: 0, // recurring delivery cashback is disabled; signup bonus remains separate
     storeUnlockAt: num(process.env.STORE_UNLOCK_AT, 399), // other items needed before one ₹1 store item can be added
   },
   otpDevMode: process.env.OTP_DEV_MODE !== 'false',
