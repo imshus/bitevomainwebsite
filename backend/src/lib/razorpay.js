@@ -4,15 +4,20 @@
 // An online order is created only once its payment is in: routes/orders.js asks Razorpay for an order
 // (POST /orders/pay), the browser takes the payment in Razorpay's own window, then POST /orders checks the
 // signature and the payment with Razorpay before placing the BiteVo order. Each Razorpay order is recorded in
-// "payments" (_id = Razorpay's order id): created → paid (BiteVo order placed) or refunded. If a payment comes
-// in but no order follows (the browser closed, or the cart stopped adding up), settlePayments() refunds it.
+// "payments" (_id = Razorpay's order id, with the order the customer was placing in `request`): created → paid
+// (BiteVo order placed) or refunded. If a payment comes in but the app or browser never places the order (it
+// lost track of the payment, the browser closed…), the server places it itself from `request`
+// (routes/orders.js completePayment, via onUnclaimedPayment): when the app asks (POST /orders/pay/:id/complete)
+// or from settlePayments() after 2 minutes. It's refunded only if it can't be placed or the customer has ordered
+// again since. Payments started before `request` was kept are refunded after 15 minutes, as before.
 import crypto from 'node:crypto';
 import { store } from '../db/index.js';
 import { config } from '../config.js';
 import { HttpError, nowIso, MIN, DAY } from './http.js';
 import { serialize } from './rules.js';
 
-const API = 'https://api.razorpay.com/v1';
+// RAZORPAY_API_URL: only to point local tests at a stand-in for Razorpay; empty = Razorpay itself.
+const API = (process.env.RAZORPAY_API_URL || 'https://api.razorpay.com/v1').replace(/\/+$/, '');
 export const razorpayEnabled = () => Boolean(config.razorpay.keyId && config.razorpay.keySecret);
 const paise = rupees => Math.round(rupees * 100);
 
@@ -41,6 +46,16 @@ async function call(method, path, body) {
 export const createRazorpayOrder = (rupees, receipt, notes) => call('POST', '/orders', { amount: paise(rupees), currency: 'INR', receipt, notes });
 export const fetchPayment = id => call('GET', `/payments/${encodeURIComponent(id)}`);
 const orderPayments = id => call('GET', `/orders/${encodeURIComponent(id)}/payments`);
+
+// The payment that came in for a Razorpay order (captured, or only authorised), or null.
+export async function paymentFor(razorpayOrderId) {
+  const { items = [] } = await orderPayments(razorpayOrderId);
+  return items.find(p => p.status === 'captured' || p.status === 'authorized') || null;
+}
+
+// routes/orders.js hands over how to finish a paid order nobody placed (it places or refunds it).
+let unclaimedHandler = null;
+export function onUnclaimedPayment(handler) { unclaimedHandler = handler; }
 const capture = (id, amountPaise) => call('POST', `/payments/${encodeURIComponent(id)}/capture`, { amount: amountPaise, currency: 'INR' });
 export const refundPayment = (id, rupees, notes) => call('POST', `/payments/${encodeURIComponent(id)}/refund`, { amount: paise(rupees), notes });
 
@@ -126,19 +141,22 @@ export async function refundUnused(record, paymentId, reason) {
 export function settlePayments() {
   return serialize('payments', async () => {
     if (!razorpayEnabled()) return;
-    const stale = new Date(Date.now() - 15 * MIN).toISOString();
+    // Two minutes gives the app or browser time to place the order itself after paying.
+    const stale = new Date(Date.now() - 2 * MIN).toISOString();
     const since = new Date(Date.now() - 3 * DAY).toISOString();
     for (const record of await store.find('payments', { status: 'created', createdAt: { $lte: stale, $gte: since } })) {
       try {
         // Placed after all (the server stopped between writing the order and marking the payment): just mark it.
         const order = await store.findOne('orders', { razorpayOrderId: record._id });
         if (order) { await store.update('payments', record._id, { status: 'paid', orderId: order._id, paymentId: order.payment?.paymentId, paidAt: nowIso() }); continue; }
-        const { items = [] } = await orderPayments(record._id);
-        const paid = items.find(p => p.status === 'captured' || p.status === 'authorized');
+        // Started before the order was kept with the payment: refund after 15 minutes, as before.
+        if (!record.request && Date.parse(record.createdAt) > Date.now() - 15 * MIN) continue;
+        const paid = await paymentFor(record._id);
         if (!paid) {
           if (Date.parse(record.createdAt) < Date.now() - DAY) await store.updateMany('payments', { _id: record._id, status: 'created' }, { status: 'expired', updatedAt: nowIso() });
           continue;
         }
+        if (record.request && unclaimedHandler) { await unclaimedHandler(record); continue; } // places it (or refunds)
         if (paid.status === 'authorized') await capture(paid.id, paid.amount);
         await refundUnused(record, paid.id, 'The order wasn’t placed after the payment');
       } catch (err) {

@@ -77,8 +77,11 @@ production).
   The keys are `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` in `backend/.env` (or the admin panel's names,
   `ROZERPAY_API` / `ROZERPAY_SECRET`); without them checkout offers cash on delivery and the wallet only.
   An online order is placed only after the server has checked the payment's signature and the payment itself
-  with Razorpay (`backend/src/lib/razorpay.js`); a payment that comes in without an order is refunded by the
-  API's 3-minute check. The website opens Razorpay's window; the app opens Razorpay's checkout in a web view,
+  with Razorpay (`backend/src/lib/razorpay.js`). The order being paid for is kept with each payment, so if the
+  app or browser loses track of a payment (the result lost on the way back from the UPI app, the app closed…),
+  the server places the order itself: when the app asks (`POST /api/orders/pay/:id/complete`, after Razorpay's
+  window closes without a clear "paid") or from the API's check 2 minutes later. It refunds instead only when the
+  order can't be placed any more or the customer has ordered again since (no second order). The website opens Razorpay's window; the app opens Razorpay's checkout in a web view,
   which returns through `POST /api/payments/razorpay-return` (`backend/src/routes/payments.js`).
   Cancelling: the customer (before the kitchen accepts) and the admin panel ("Refund to UPI/Card") refund the
   online part through Razorpay and the wallet part to the wallet.

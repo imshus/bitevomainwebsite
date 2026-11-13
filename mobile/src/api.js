@@ -73,6 +73,9 @@ export const api = {
 
   quote: cart => post('/orders/quote', cart, { quiet401: true }),
   payOnline: order => post('/orders/pay', order), // a Razorpay order to pay (see components/RazorpayCheckout.js)
+  // After Razorpay's window closes without a clear "paid": { order } if the money came in (the server places it),
+  // { paid: false } if it didn't, { refunded, message } if it had to be refunded.
+  completePayment: razorpayOrderId => post(`/orders/pay/${encodeURIComponent(razorpayOrderId)}/complete`),
   placeOrder: order => post('/orders', order),
   orders: () => get('/orders'),
   order: id => get(`/orders/${id}`),
