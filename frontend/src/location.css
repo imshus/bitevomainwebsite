@@ -146,7 +146,7 @@
 .place-search__box button { width: 32px; height: 32px; flex: none; border: 0; border-radius: 50%; background: var(--grey-soft); display: grid; place-items: center; cursor: pointer; }
 .place-search__box button svg { width: 15px; height: 15px; stroke: #555; stroke-width: 2; fill: none; stroke-linecap: round; }
 .place-search .form-error { margin-top: 12px; }
-.place-search > .btn, .location-sheet .place-add { margin-top: 16px; }
+.place-search > .btn { margin-top: 16px; }
 .place-row {
   display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 6px; border: 0; border-bottom: 1px solid var(--line);
   background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background .15s;
@@ -169,7 +169,7 @@
 
 /* Map with a pin fixed in the middle */
 .pin-map__frame { position: relative; height: min(46vh, 380px); background: #E5ECE3; }
-.pin-map__map { position: absolute; inset: 0; }
+.pin-map__map { position: absolute; inset: 0; z-index: 0; isolation: isolate; } /* keeps Leaflet's panes under the pin */
 .pin-map__frame.is-failed { height: auto; padding: 56px 22px 4px; background: none; }
 .pin-map__frame.is-failed .pin-map__map { display: none; }
 .pin-map__fallback { margin: 0; font-size: 14px; color: var(--muted); }
@@ -194,7 +194,6 @@
 .pin-map__locate:disabled { opacity: .6; cursor: progress; }
 
 .pin-card { padding: 18px 22px 22px; }
-.pin-card__hint { margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
 .pin-card__place { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
 .pin-card__place--boxed { padding: 12px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--red-tint); }
 .pin-card__icon { width: 38px; height: 38px; flex: none; border-radius: 50%; background: var(--red-soft); display: grid; place-items: center; }
@@ -203,22 +202,66 @@
 .pin-card__text b { font-size: 17px; font-weight: 700; }
 .pin-card__text span { font-size: 13.5px; color: var(--muted); }
 .pin-card__place .link { flex: none; padding-top: 7px; font-size: 14px; }
-.pin-card__warn { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: var(--amber-soft); color: #7A4A00; font-size: 14px; }
-.pin-card__warn b { display: block; color: var(--red); }
 .place-row__off { display: block; margin-top: 2px; color: var(--red); font-size: 12.5px; font-weight: 600; }
-.pin-add { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.pin-add svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; }
-/* Address form: the sector chips, and "I'm at this address now" (the phone's GPS) */
-.chips--fit { flex-wrap: wrap; margin: 0; }
-.gps-add { display: grid; justify-items: start; gap: 2px; }
-.gps-add .pin-add { margin: 0; text-align: left; }
-.gps-add small { color: var(--muted); font-size: 12.5px; }
+/* "Select location": a card with current location and add new address, then saved addresses */
+.place-card { margin-top: 16px; border: 1.5px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--white); }
+.place-card .place-row { padding: 12px 14px; }
+.place-card .place-row:last-child { border-bottom: 0; }
+.place-card .place-row--gps { margin: 0; cursor: default; }
+.place-card .place-row--gps:hover { background: none; }
+.place-row__enable {
+  flex: none; height: 34px; min-width: 72px; padding: 0 14px; border: 0; border-radius: 10px; background: var(--red);
+  color: var(--white); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+}
+.place-row__enable:disabled { opacity: .6; cursor: progress; }
+.place-row--add b { color: var(--red); }
+.place-row--add .place-row__icon svg { stroke: var(--red); stroke-width: 2.2; }
+.place-row--add .place-row__icon { background: var(--red-soft); }
+.place-row--saved { padding: 0; cursor: default; }
+.place-row--saved:hover { background: none; }
+.place-row__main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 6px; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px;
+}
+.place-row__main:hover:not(:disabled) { background: var(--red-tint); }
+.place-row__text small { font-size: 12.5px; color: var(--muted); }
+.place-row__badge {
+  display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: #E6F4EA; color: #1E7B34;
+  font-family: inherit; font-size: 11.5px; font-style: normal; font-weight: 700; vertical-align: 2px;
+}
+.place-row--saved.is-selected .place-row__icon { background: var(--red-soft); }
+.place-row--saved.is-selected .place-row__icon svg { stroke: var(--red); }
+.place-row__edit {
+  flex: none; width: 38px; height: 38px; margin-right: 2px; border: 0; border-radius: 50%; background: none;
+  display: grid; place-items: center; cursor: pointer;
+}
+.place-row__edit:hover { background: var(--grey-soft); }
+.place-row__edit svg { width: 18px; height: 18px; stroke: #666; stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The map's search bar, the two-line pin tip and "We are not serviceable at this location" */
+.pin-map__search {
+  position: absolute; z-index: 2; top: 14px; left: 14px; right: 62px; height: 46px; display: flex; align-items: center; gap: 10px;
+  padding: 0 14px; border: 0; border-radius: 12px; background: var(--white); color: var(--muted);
+  font: inherit; font-size: 14.5px; text-align: left; cursor: pointer; box-shadow: 0 2px 12px rgba(0, 0, 0, .18);
+}
+.pin-map__search svg { width: 19px; height: 19px; flex: none; stroke: var(--red); stroke-width: 2.2; fill: none; stroke-linecap: round; }
+.pin-map__search span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pin-map__tip b, .pin-map__tip small { display: block; text-align: center; }
+.pin-map__tip b { font-size: 13px; font-weight: 700; }
+.pin-map__tip small { font-size: 11.5px; font-weight: 500; opacity: .8; }
+.pin-map__frame .leaflet-control-attribution { font-size: 10px; }
+.pin-map__off {
+  margin: 0; padding: 10px 22px; background: #FDECEC; color: var(--red); font-size: 14px; font-weight: 600; line-height: 1.4;
+}
+.pin-map__off small { display: block; margin-top: 2px; color: #7A3A3A; font-size: 12.5px; font-weight: 500; }
+.address-sheet__note { margin: 0 44px 14px 0; padding: 10px 12px; border-radius: 10px; background: var(--amber-soft); color: #7A4A00; font-size: 14px; }
 
 @media (max-width: 520px) {
   .menu-top { padding-top: 16px; }
   .menu-top .banners { padding: 16px 0 8px; }
   .menu-top .banners__track { border-radius: 0; box-shadow: none; } /* edge to edge, no side margins */
   .location-sheet--map.sheet--dialog { padding: 0 0 env(safe-area-inset-bottom); }
+  .location-sheet:not(.location-sheet--map) { min-height: 70vh; } /* stays put while search results come and go */
   .pin-map__frame { height: 44vh; }
   .pin-card { padding: 16px 18px 18px; }
 }

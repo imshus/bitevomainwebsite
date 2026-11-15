@@ -249,3 +249,39 @@ export async function approxPoint(address) {
   }
   return null;
 }
+
+// ---- Search while typing, without a Google key: Photon --------------------------------------------
+// Nominatim's usage policy doesn't allow search-as-you-type, so suggestions come from Photon (komoot's free
+// OpenStreetMap search, made for type-ahead), limited to about 25 km around the kitchen (or central Gurugram) and
+// cached. Each suggestion carries its point: the address form opens the map there, and the address under the pin
+// comes from addressAtOsm() as usual. Same shape as autocomplete(), with `lat` / `lng` instead of a Google placeId.
+const PHOTON = 'https://photon.komoot.io/api/';
+const GURUGRAM = { lat: 28.4595, lng: 77.0266 };
+const suggestCache = smallCache(300);
+
+export async function suggestOsm(input) {
+  const q = input.trim().toLowerCase();
+  const cached = suggestCache.get(q);
+  if (cached) return cached;
+  const c = config.maps.kitchen || GURUGRAM;
+  const box = [c.lng - 0.25, c.lat - 0.25, c.lng + 0.25, c.lat + 0.25].map(n => n.toFixed(4)).join(',');
+  const qs = new URLSearchParams({ q: input, limit: '7', lang: 'en', lat: String(c.lat), lon: String(c.lng), bbox: box });
+  let data;
+  try {
+    const res = await fetch(`${PHOTON}?${qs}`, { headers: { 'User-Agent': 'BiteVo/1.0 (https://bitevo.in)' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json();
+  } catch (err) {
+    console.error(`[maps] Photon search failed: ${err.message}`);
+    throw unavailable();
+  }
+  const list = (data.features || []).map(f => {
+    const p = f.properties || {};
+    const [lng, lat] = f.geometry?.coordinates || [];
+    const street = [p.housenumber, p.street].filter(Boolean).join(' ');
+    const main = p.name || street || p.district || p.locality || p.city || '';
+    const secondary = [...new Set([p.name && street, p.district || p.locality, p.city, p.postcode].filter(Boolean))].filter(s => s !== main).join(', ');
+    return { placeId: `osm:${lat},${lng}`, main, secondary, lat, lng, distanceKm: Math.round(distanceKm(c, { lat, lng }) * 10) / 10 };
+  }).filter(s => s.main && Number.isFinite(s.lat) && Number.isFinite(s.lng));
+  return suggestCache.set(q, list.slice(0, 6));
+}

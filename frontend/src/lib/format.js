@@ -35,7 +35,7 @@ export const itemsSummary = items => items.map(i => `${i.qty} × ${i.name}`).joi
 // from VITE_DELIVERY_MINS ("20-25" or "30"; default 20-25).
 export const DELIVERY_MINS = String(import.meta.env.VITE_DELIVERY_MINS || '20-25').replace(/\s+/g, '').replace(/-/g, '–');
 
-export const addressLine = a => [a.line1, a.line2, a.landmark && `Near ${a.landmark}`, a.pincode].filter(Boolean).join(', ');
+export const addressLine = a => [a.line1, a.line2, a.landmark && `Near ${a.landmark}`, !String(a.line2 || '').includes(a.pincode) && a.pincode].filter(Boolean).join(', ');
 
 // What an offer gives, in a few words.
 export function offerHeadline(o) {

@@ -2,17 +2,14 @@
 // and the address at a map pin. Open to guests too, so the menu can show where they're ordering to.
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { badRequest, HttpError, text, MIN } from '../lib/http.js';
-import { mapsEnabled, autocomplete, placeDetails, addressAt, addressAtOsm } from '../lib/maps.js';
+import { badRequest, text, MIN } from '../lib/http.js';
+import { mapsEnabled, autocomplete, placeDetails, addressAt, addressAtOsm, suggestOsm } from '../lib/maps.js';
 
 export const router = Router();
 
-// Searching places needs the Google key; the address at a location (the phone's current location) works without
-// it too, through OpenStreetMap (lib/maps.js addressAtOsm).
-const needsGoogle = (req, res, next) => {
-  if (!mapsEnabled()) throw new HttpError(503, 'Location search isn’t set up yet. Please type your address instead.');
-  next();
-};
+// With a Google key, search, place details and the address at a pin come from Google; without one, from
+// OpenStreetMap (lib/maps.js: suggestOsm for search, addressAtOsm for the address at a point). OpenStreetMap
+// suggestions have the id "osm:<lat>,<lng>".
 
 router.use(rateLimit({
   windowMs: 10 * MIN, limit: 300, standardHeaders: 'draft-7', legacyHeaders: false,
@@ -29,9 +26,10 @@ function point(lat, lng, { required = true } = {}) {
   return ok ? p : undefined;
 }
 
-router.get('/search', needsGoogle, async (req, res) => {
+router.get('/search', async (req, res) => {
   const q = text(req.query.q, 100);
   if (q.length < 2) return res.json([]);
+  if (!mapsEnabled()) return res.json(await suggestOsm(q));
   res.json(await autocomplete(q, { session: session(req.query.session), near: point(req.query.lat, req.query.lng, { required: false }) }));
 });
 
@@ -40,7 +38,13 @@ router.get('/reverse', async (req, res) => {
   res.json(mapsEnabled() ? await addressAt(lat, lng) : await addressAtOsm(lat, lng));
 });
 
-router.get('/:placeId', needsGoogle, async (req, res) => {
+router.get('/:placeId', async (req, res) => {
+  const osm = req.params.placeId.match(/^osm:(-?[\d.]+),(-?[\d.]+)$/);
+  if (osm) {
+    const { lat, lng } = point(osm[1], osm[2]);
+    return res.json(mapsEnabled() ? await addressAt(lat, lng) : await addressAtOsm(lat, lng));
+  }
+  if (!mapsEnabled()) throw badRequest('That place doesn’t look right.');
   if (!/^[A-Za-z0-9_-]{10,300}$/.test(req.params.placeId)) throw badRequest('That place doesn’t look right.');
   res.json(await placeDetails(req.params.placeId, { session: session(req.query.session) }));
 });

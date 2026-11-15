@@ -162,8 +162,8 @@ export default function MenuHeader({ query, setQuery, vegOnly, setVegOnly, dishN
       )}
 
       <LazyPart onError={() => { setPicking(false); setAdding(false); toast(CANT_OPEN, 'error'); }}>
-        {picking && <LocationPicker onClose={() => setPicking(false)} onAddAddress={() => { setPicking(false); setAdding(true); }} />}
-        {adding && <AddressForm onClose={() => setAdding(false)} onSaved={a => setDeliveryLocation(locationFromAddress(a))} />}
+        {picking && <LocationPicker onClose={() => setPicking(false)} onAddAddress={a => { setPicking(false); setAdding(a?._id ? a : true); }} />}
+        {adding && <AddressForm address={adding._id ? adding : null} onClose={() => setAdding(false)} onSaved={a => setDeliveryLocation(locationFromAddress(a))} />}
       </LazyPart>
       {menuOpen && <SiteMenu onClose={() => setMenuOpen(false)} />}
     </div>

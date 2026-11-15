@@ -247,7 +247,8 @@ async function insertOrder(customer, body, { bill, phone, address }, online) {
     address: {
       label: address.label, line1: address.line1, line2: address.line2, landmark: address.landmark, pincode: address.pincode,
       area: address.area || '',
-      ...(address.house && { house: address.house, building: address.building, city: address.city || '' }),
+      ...(address.house && { house: address.house, building: address.building || '', city: address.city || '' }),
+      ...(address.receiverPhone && { receiverName: address.receiverName, receiverPhone: address.receiverPhone }),
       ...(address.lat != null && { lat: address.lat, lng: address.lng, mapAddress: address.mapAddress || '' }),
     },
     note: text(body.note, 200),

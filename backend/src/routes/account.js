@@ -72,13 +72,29 @@ router.patch('/', async (req, res) => {
 // line1 ("house, building") and line2 ("area, city") are kept too: orders, emails, the rider app and the
 // admin panel show them, and older app versions send and read only those two lines (then the area is
 // worked out from the text, as before). Older app versions also send a `zone`; it's ignored.
+//
+// The website's address form (map first, like a delivery app) sends a third shape: a map pin (lat, lng and the
+// map's address, mapAddress), the flat / house / plot number (house), and who receives the order (receiverName,
+// receiverPhone). Nothing else is typed: the area comes from the pin's address, line1 is the flat number and
+// line2 the map's address.
 function cleanAddress(body) {
   const a = {
     label: text(body?.label, 20) || 'Home',
     landmark: text(body?.landmark, 80),
     pincode: text(body?.pincode, 6).replace(/\D/g, ''),
   };
-  if (body && ('house' in body || 'building' in body)) {
+  if (body && 'receiverName' in body) {
+    const house = text(body.house, 60);
+    const mapAddress = text(body.mapAddress, 200);
+    const receiverName = text(body.receiverName, 60);
+    const receiverPhone = normalizePhone(body.receiverPhone);
+    if (!house) throw badRequest('Enter your flat, house or plot number.');
+    if (receiverName.length < 2) throw badRequest('Enter the name of the person receiving the order.');
+    if (!receiverPhone) throw badRequest('Enter a valid 10-digit mobile number for the person receiving the order.');
+    if (body.lat == null || body.lng == null || !mapAddress) throw badRequest('Set your location on the map first.');
+    if (a.pincode.length !== 6) a.pincode = ''; // the map's postcode, when it has a usable one
+    Object.assign(a, { house, receiverName, receiverPhone, city: text(body.city, 60), line1: house, line2: mapAddress.slice(0, 120) });
+  } else if (body && ('house' in body || 'building' in body)) {
     const house = text(body.house, 60);
     const building = text(body.building, 120);
     if (!house) throw badRequest('Enter your house or flat number.');
@@ -113,9 +129,11 @@ function cleanAddress(body) {
     if (mapAddress) a.mapAddress = mapAddress;
     if (!a.area && body?.area) a.area = text(body.area, 60); // an older app's map area
   }
+  if (a.receiverName && a.lat == null) throw badRequest('Set your location on the map first.');
   const check = deliveryCheck(a);
   if (!check.deliverable) throw badRequest(check.message);
-  if (!a.house) a.area = areaOf(a) || a.area || ''; // two-line addresses: name the sector for riders and the panel
+  // Two-line and map-pin addresses: name the sector for riders and the panel.
+  if (!a.house || a.receiverName) a.area = areaOf(a) || a.area || '';
   return a;
 }
 
